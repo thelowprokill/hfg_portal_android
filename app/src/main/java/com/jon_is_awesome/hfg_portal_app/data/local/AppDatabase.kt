@@ -1,0 +1,31 @@
+package com.jon_is_awesome.hfg_portal_app.data.local
+
+import android.content.Context
+import androidx.room.Database
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import com.jon_is_awesome.hfg_portal_app.data.model.Budget
+import com.jon_is_awesome.hfg_portal_app.data.model.CarLog
+import com.jon_is_awesome.hfg_portal_app.data.model.Expense
+
+@Database(entities = [CarLog::class, Expense::class, Budget::class], version = 1, exportSchema = false)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun appDao(): AppDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        fun getDatabase(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "hfg_portal_database"
+                ).build()
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
+}
