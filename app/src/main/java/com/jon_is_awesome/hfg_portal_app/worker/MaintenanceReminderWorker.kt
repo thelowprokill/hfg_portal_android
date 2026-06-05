@@ -7,7 +7,6 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.jon_is_awesome.hfg_portal_app.R
 
 class MaintenanceReminderWorker(
     context: Context,
@@ -15,15 +14,12 @@ class MaintenanceReminderWorker(
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        val title = inputData.getString("title") ?: "Maintenance Reminder"
-        val message = inputData.getString("message") ?: "Your car needs attention."
-
-        showNotification(title, message)
-
+        val serviceType = inputData.getString("serviceType") ?: "Car Maintenance"
+        showNotification(serviceType)
         return Result.success()
     }
 
-    private fun showNotification(title: String, message: String) {
+    private fun showNotification(serviceType: String) {
         val notificationManager =
             applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -32,16 +28,18 @@ class MaintenanceReminderWorker(
             val channel = NotificationChannel(
                 channelId,
                 "Maintenance Reminders",
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifications for scheduled car maintenance"
+            }
             notificationManager.createNotificationChannel(channel)
         }
 
         val notification = NotificationCompat.Builder(applicationContext, channelId)
-            .setContentTitle(title)
-            .setContentText(message)
             .setSmallIcon(android.R.drawable.ic_dialog_info) // Fallback icon
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentTitle("Maintenance Reminder")
+            .setContentText("Your scheduled $serviceType is due!")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()
 
