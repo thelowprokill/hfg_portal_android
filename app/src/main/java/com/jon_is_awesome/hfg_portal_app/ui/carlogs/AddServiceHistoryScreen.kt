@@ -25,10 +25,18 @@ fun AddServiceHistoryScreen(
 ) {
     val selectedCar by remoteViewModel.selectedCar.collectAsState()
     val maintenanceItems by remoteViewModel.maintenanceItems.collectAsState()
+    val serviceHistory by remoteViewModel.serviceHistory.collectAsState()
 
     var selectedItemId by remember { mutableStateOf<Int?>(null) }
     var namedItem by remember { mutableStateOf("") }
     var mileage by remember { mutableStateOf("") }
+
+    LaunchedEffect(serviceHistory) {
+        if (mileage.isBlank()) {
+            val lastMileage = serviceHistory.mapNotNull { it.mileage }.maxOrNull()
+            if (lastMileage != null) mileage = lastMileage.toString()
+        }
+    }
     var notes by remember { mutableStateOf("") }
     var date by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var dropdownExpanded by remember { mutableStateOf(false) }
