@@ -1,6 +1,7 @@
 package com.jon_is_awesome.hfg_portal_app.ui.carlogs
 
 import android.Manifest
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -10,17 +11,25 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.jon_is_awesome.hfg_portal_app.data.model.CarLog
 import java.text.SimpleDateFormat
 import java.util.*
+
+fun formatDate(timestamp: Long): String {
+    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    return sdf.format(Date(timestamp))
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +42,7 @@ fun AddCarLogScreen(
     var mileage by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var date by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
     
     var showDatePicker by remember { mutableStateOf(false) }
     var showReminderDatePicker by remember { mutableStateOf(false) }
@@ -40,6 +50,13 @@ fun AddCarLogScreen(
     var reminderDate by remember { mutableStateOf<Long?>(null) }
 
     val context = LocalContext.current
+    
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        imageUri = uri
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { }
@@ -100,6 +117,30 @@ fun AddCarLogScreen(
                 Text("Service Date: ${formatDate(date)}")
             }
 
+            // Image Picker Section
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Receipt or Photo", style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.height(8.dp))
+                if (imageUri != null) {
+                    AsyncImage(
+                        model = imageUri,
+                        contentDescription = "Selected Receipt",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                OutlinedButton(
+                    onClick = { imagePickerLauncher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (imageUri == null) "Add Receipt Image" else "Change Image")
+                }
+            }
+
             OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
@@ -156,7 +197,8 @@ fun AddCarLogScreen(
                                 mileage = mileage.toIntOrNull() ?: 0,
                                 notes = notes,
                                 date = date,
-                                reminderDate = if (scheduleReminder) reminderDate else null
+                                reminderDate = if (scheduleReminder) reminderDate else null,
+                                imageUri = imageUri?.toString()
                             )
                         )
                     }

@@ -1,66 +1,151 @@
 package com.jon_is_awesome.hfg_portal_app.ui.carlogs
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jon_is_awesome.hfg_portal_app.data.model.CarLog
-import java.text.SimpleDateFormat
-import java.util.*
+import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteCar
+import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteServiceHistory
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CarLogListScreen(
     viewModel: CarLogViewModel,
+    remoteViewModel: CarMaintenanceViewModel,
     onAddLogClick: () -> Unit
 ) {
-    val carLogs by viewModel.carLogs.collectAsState()
+    val cars by remoteViewModel.cars.collectAsState()
+    val serviceHistory by remoteViewModel.serviceHistory.collectAsState()
+    val isLoggedIn by remoteViewModel.isLoggedIn.collectAsState()
+    
+    var selectedCar by remember { mutableStateOf<RemoteCar?>(null) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Car Maintenance Logs") }
+                title = { 
+                    Text(if (selectedCar != null) "Service History: ${selectedCar?.name}" else "Car Maintenance") 
+                },
+                navigationIcon = {
+                    if (selectedCar != null) {
+                        IconButton(onClick = { selectedCar = null }) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddLogClick) {
-                Icon(Icons.Rounded.Add, contentDescription = "Add Log")
+            if (selectedCar != null) {
+                FloatingActionButton(onClick = onAddLogClick) {
+                    Icon(Icons.Rounded.Add, contentDescription = "Add Service")
+                }
             }
         }
     ) { padding ->
-        if (carLogs.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("No logs found. Add your first service record!")
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(carLogs) { log ->
-                    CarLogItem(
-                        log = log,
-                        onDeleteClick = { viewModel.deleteCarLog(it) }
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            if (isLoggedIn == true) {
+                if (selectedCar == null) {
+                    CarList(
+                        cars = cars,
+                        onCarClick = { car ->
+                            selectedCar = car
+                            remoteViewModel.fetchServiceHistory(car.id)
+                        }
                     )
+                } else {
+                    ServiceHistoryList(history = serviceHistory)
+                }
+            } else if (isLoggedIn == null) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            } else {
+                // This case is handled by MainActivity, but we show a fallback
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Please login to view car maintenance data.")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CarList(cars: List<RemoteCar>, onCarClick: (RemoteCar) -> Unit) {
+    if (cars.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No cars found.")
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Name", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text("Year", fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.5f))
+                    Text("Make", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text("Model", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                }
+                HorizontalDivider()
+            }
+            items(cars) { car ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onCarClick(car) }
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(car.name ?: "Unknown", modifier = Modifier.weight(1f))
+                    Text(car.year?.toString() ?: "-", modifier = Modifier.weight(0.5f))
+                    Text(car.make ?: "-", modifier = Modifier.weight(1f))
+                    Text(car.model ?: "-", modifier = Modifier.weight(1f))
+                }
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp), thickness = 0.5.dp)
+            }
+        }
+    }
+}
+
+@Composable
+fun ServiceHistoryList(history: List<RemoteServiceHistory>) {
+    if (history.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No service history found.")
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(history) { entry ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(entry.item ?: "Unknown Service", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Date: ${entry.service_date ?: "Unknown"}", style = MaterialTheme.typography.bodySmall)
+                        Text("Mileage: ${entry.mileage ?: 0}", style = MaterialTheme.typography.bodyMedium)
+                        if (!entry.notes.isNullOrBlank()) {
+                            Text("Notes: ${entry.notes}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                 }
             }
         }
@@ -70,18 +155,19 @@ fun CarLogListScreen(
 @Composable
 fun CarLogItem(
     log: CarLog,
-    onDeleteClick: (CarLog) -> Unit
+    onDeleteClick: (CarLog) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .padding(16.dp)
                 .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -90,23 +176,16 @@ fun CarLogItem(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Date: ${formatDate(log.date)}",
+                    text = formatDate(log.date),
                     style = MaterialTheme.typography.bodySmall
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Cost: $${log.cost}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    text = String.format(Locale.getDefault(), "Cost: $%.2f", log.cost),
+                    style = MaterialTheme.typography.bodyMedium
                 )
-                if (log.notes.isNotEmpty()) {
-                    Text(
-                        text = "Notes: ${log.notes}",
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 2
-                    )
-                }
                 Text(
-                    text = "Mileage: ${log.mileage} miles",
+                    text = "Mileage: ${log.mileage}",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -119,9 +198,4 @@ fun CarLogItem(
             }
         }
     }
-}
-
-fun formatDate(timestamp: Long): String {
-    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-    return sdf.format(Date(timestamp))
 }

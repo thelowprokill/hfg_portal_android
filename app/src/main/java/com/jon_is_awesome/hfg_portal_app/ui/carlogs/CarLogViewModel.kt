@@ -44,8 +44,7 @@ class CarLogViewModel(
         val delay = reminderTime - System.currentTimeMillis()
         if (delay > 0) {
             val data = Data.Builder()
-                .putString("title", "Maintenance Reminder")
-                .putString("message", "Time for your scheduled $serviceType")
+                .putString("serviceType", serviceType)
                 .build()
 
             val workRequest = OneTimeWorkRequestBuilder<MaintenanceReminderWorker>()

@@ -11,5 +11,6 @@ data class CarLog(
     val cost: Double,
     val notes: String,
     val mileage: Int,
-    val reminderDate: Long? = null
+    val reminderDate: Long? = null,
+    val imageUri: String? = null
 )

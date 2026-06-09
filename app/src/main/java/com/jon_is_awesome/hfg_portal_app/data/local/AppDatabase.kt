@@ -8,7 +8,7 @@ import com.jon_is_awesome.hfg_portal_app.data.model.Budget
 import com.jon_is_awesome.hfg_portal_app.data.model.CarLog
 import com.jon_is_awesome.hfg_portal_app.data.model.Expense
 
-@Database(entities = [CarLog::class, Expense::class, Budget::class], version = 1, exportSchema = false)
+@Database(entities = [CarLog::class, Expense::class, Budget::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun appDao(): AppDao
 
@@ -22,7 +22,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "hfg_portal_database"
-                ).build()
+                )
+                .fallbackToDestructiveMigration()
+                .build()
                 INSTANCE = instance
                 instance
             }

@@ -9,5 +9,6 @@ data class Expense(
     val title: String,
     val amount: Double,
     val date: Long,
-    val category: String
+    val category: String,
+    val receiptImageUri: String? = null
 )

@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.devtools.ksp)
+    kotlin("plugin.serialization") version "2.1.0"
 }
 
 android {
@@ -16,6 +17,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Base URL for the API
+        buildConfigField("String", "BASE_URL", "\"https://hullfamilygames.com\"")
     }
 
     buildTypes {
@@ -33,6 +37,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -65,10 +70,17 @@ dependencies {
     implementation(libs.androidx.camera.core)
     implementation(libs.logging.interceptor)
     implementation(libs.okhttp)
-    implementation(libs.moshi-kotlin)
+    implementation(libs.moshi.kotlin)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.material)
     implementation(libs.androidx.work.runtime.ktx)
+    
+    // Ktor dependencies from car_maintenance_test
+    implementation("io.ktor:ktor-client-core:3.0.0")
+    implementation("io.ktor:ktor-client-android:3.0.0")
+    implementation("io.ktor:ktor-client-content-negotiation:3.0.0")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:3.0.0")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

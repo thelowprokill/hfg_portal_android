@@ -13,7 +13,7 @@ interface AppDao {
     fun getAllCarLogs(): Flow<List<CarLog>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCarLog(carLog: CarLog)
+    suspend fun insertCarLog(carLog: CarLog): Long
 
     @Delete
     suspend fun deleteCarLog(carLog: CarLog)
@@ -23,7 +23,7 @@ interface AppDao {
     fun getAllExpenses(): Flow<List<Expense>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertExpense(expense: Expense)
+    suspend fun insertExpense(expense: Expense): Long
 
     @Delete
     suspend fun deleteExpense(expense: Expense)
@@ -33,7 +33,7 @@ interface AppDao {
     fun getAllBudgets(): Flow<List<Budget>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBudget(budget: Budget)
+    suspend fun insertBudget(budget: Budget): Long
 
     @Delete
     suspend fun deleteBudget(budget: Budget)
