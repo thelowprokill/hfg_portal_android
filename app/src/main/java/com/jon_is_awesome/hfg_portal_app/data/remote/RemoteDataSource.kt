@@ -33,6 +33,7 @@ class RemoteDataSource(private val context: Context) {
     private val _cars = MutableStateFlow<List<RemoteCar>>(emptyList())
     private val _serviceHistory = MutableStateFlow<List<RemoteServiceHistory>>(emptyList())
     private val _maintenanceItems = MutableStateFlow<List<RemoteMaintenanceItem>>(emptyList())
+    private val _maintenanceImages = MutableStateFlow<List<RemoteMaintenanceImage>>(emptyList())
     private val _isLoggedIn = MutableStateFlow<Boolean?>(null)
     private val _token = MutableStateFlow<String?>(null)
     private val _loginError = MutableSharedFlow<String>()
@@ -40,6 +41,7 @@ class RemoteDataSource(private val context: Context) {
     val cars: StateFlow<List<RemoteCar>> = _cars
     val serviceHistory: StateFlow<List<RemoteServiceHistory>> = _serviceHistory
     val maintenanceItems: StateFlow<List<RemoteMaintenanceItem>> = _maintenanceItems
+    val maintenanceImages: StateFlow<List<RemoteMaintenanceImage>> = _maintenanceImages
     val isLoggedIn: StateFlow<Boolean?> = _isLoggedIn
     val loginError = _loginError.asSharedFlow()
 
@@ -249,12 +251,57 @@ class RemoteDataSource(private val context: Context) {
         } ?: false
     }
 
+    suspend fun fetchMaintenanceImages(serviceHistoryId: Int) {
+        val baseURL = BuildConfig.BASE_URL
+        _maintenanceImages.value = emptyList()
+        client?.let {
+            try {
+                val response: MaintenanceImagesResponse = it.get("${baseURL}/apis/call") {
+                    parameter("scope", "car_maintenance:maintenance_images")
+                    parameter("route", "maintenance_images")
+                    parameter("service_history_id", serviceHistoryId)
+                }.body()
+                _maintenanceImages.value = response.data
+                Log.d(TAG, "fetchMaintenanceImages success for history $serviceHistoryId: count=${response.data.size}")
+            } catch (e: Exception) {
+                Log.e(TAG, "fetchMaintenanceImages error", e)
+            }
+        }
+    }
+
+    suspend fun addMaintenanceImage(
+        serviceHistoryId: Int,
+        name: String,
+        imageBase64: String,
+        contentType: String
+    ): Boolean {
+        val baseURL = BuildConfig.BASE_URL
+        return client?.let {
+            try {
+                val response: GenericResponse = it.put("${baseURL}/apis/call") {
+                    parameter("scope", "car_maintenance:maintenance_images")
+                    parameter("route", "maintenance_image")
+                    parameter("service_history_id", serviceHistoryId)
+                    parameter("name", name)
+                    parameter("image", imageBase64)
+                    parameter("image_content_type", contentType)
+                }.body()
+                Log.d(TAG, "addMaintenanceImage response: ${response.response}")
+                response.response == "ok"
+            } catch (e: Exception) {
+                Log.e(TAG, "addMaintenanceImage error", e)
+                false
+            }
+        } ?: false
+    }
+
     fun logout() {
         Log.d(TAG, "logout called")
         sharedPreferences.edit().clear().apply()
         _token.value = null
         _isLoggedIn.value = false
         _cars.value = emptyList()
+        _maintenanceImages.value = emptyList()
         client?.close()
         client = null
     }

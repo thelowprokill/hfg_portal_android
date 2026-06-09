@@ -8,7 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,23 +24,23 @@ import java.util.Locale
 fun CarLogListScreen(
     viewModel: CarLogViewModel,
     remoteViewModel: CarMaintenanceViewModel,
-    onAddLogClick: () -> Unit
+    onAddLogClick: () -> Unit,
+    onServiceHistoryClick: (RemoteServiceHistory) -> Unit
 ) {
     val cars by remoteViewModel.cars.collectAsState()
     val serviceHistory by remoteViewModel.serviceHistory.collectAsState()
     val isLoggedIn by remoteViewModel.isLoggedIn.collectAsState()
-    
-    var selectedCar by remember { mutableStateOf<RemoteCar?>(null) }
+    val selectedCar by remoteViewModel.selectedCar.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
-                    Text(if (selectedCar != null) "Service History: ${selectedCar?.name}" else "Car Maintenance") 
+                title = {
+                    Text(if (selectedCar != null) "Service History: ${selectedCar?.name}" else "Car Maintenance")
                 },
                 navigationIcon = {
                     if (selectedCar != null) {
-                        IconButton(onClick = { selectedCar = null }) {
+                        IconButton(onClick = { remoteViewModel.selectCar(null) }) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                         }
                     }
@@ -62,17 +61,19 @@ fun CarLogListScreen(
                     CarList(
                         cars = cars,
                         onCarClick = { car ->
-                            selectedCar = car
+                            remoteViewModel.selectCar(car)
                             remoteViewModel.fetchServiceHistory(car.id)
                         }
                     )
                 } else {
-                    ServiceHistoryList(history = serviceHistory)
+                    ServiceHistoryList(
+                        history = serviceHistory,
+                        onItemClick = onServiceHistoryClick
+                    )
                 }
             } else if (isLoggedIn == null) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
-                // This case is handled by MainActivity, but we show a fallback
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Please login to view car maintenance data.")
                 }
@@ -125,7 +126,10 @@ fun CarList(cars: List<RemoteCar>, onCarClick: (RemoteCar) -> Unit) {
 }
 
 @Composable
-fun ServiceHistoryList(history: List<RemoteServiceHistory>) {
+fun ServiceHistoryList(
+    history: List<RemoteServiceHistory>,
+    onItemClick: (RemoteServiceHistory) -> Unit
+) {
     if (history.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("No service history found.")
@@ -137,9 +141,17 @@ fun ServiceHistoryList(history: List<RemoteServiceHistory>) {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(history) { entry ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onItemClick(entry) }
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(entry.item ?: "Unknown Service", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            entry.item ?: "Unknown Service",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                         Text("Date: ${entry.service_date ?: "Unknown"}", style = MaterialTheme.typography.bodySmall)
                         Text("Mileage: ${entry.mileage ?: 0}", style = MaterialTheme.typography.bodyMedium)
                         if (!entry.notes.isNullOrBlank()) {

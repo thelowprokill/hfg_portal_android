@@ -1,16 +1,23 @@
 package com.jon_is_awesome.hfg_portal_app.ui.carlogs
 
 import android.app.Application
+import android.content.Context
+import android.net.Uri
+import android.util.Base64
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteDataSource
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteCar
-import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteServiceHistory
+import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteDataSource
+import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteMaintenanceImage
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteMaintenanceItem
+import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteServiceHistory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class CarMaintenanceViewModel(
     application: Application,
@@ -20,8 +27,16 @@ class CarMaintenanceViewModel(
     val cars: StateFlow<List<RemoteCar>> = remoteDataSource.cars
     val serviceHistory: StateFlow<List<RemoteServiceHistory>> = remoteDataSource.serviceHistory
     val maintenanceItems: StateFlow<List<RemoteMaintenanceItem>> = remoteDataSource.maintenanceItems
+    val maintenanceImages: StateFlow<List<RemoteMaintenanceImage>> = remoteDataSource.maintenanceImages
     val isLoggedIn: StateFlow<Boolean?> = remoteDataSource.isLoggedIn
     val loginError = remoteDataSource.loginError
+
+    private val _selectedCar = MutableStateFlow<RemoteCar?>(null)
+    val selectedCar: StateFlow<RemoteCar?> = _selectedCar
+
+    fun selectCar(car: RemoteCar?) {
+        _selectedCar.value = car
+    }
 
     fun login(username: String, password: String) {
         remoteDataSource.login(username, password)
@@ -49,6 +64,12 @@ class CarMaintenanceViewModel(
         }
     }
 
+    fun fetchMaintenanceImages(serviceHistoryId: Int) {
+        viewModelScope.launch {
+            remoteDataSource.fetchMaintenanceImages(serviceHistoryId)
+        }
+    }
+
     fun addServiceHistory(
         carId: Int,
         serviceDate: String,
@@ -64,6 +85,28 @@ class CarMaintenanceViewModel(
             if (success) {
                 remoteDataSource.fetchServiceHistory(carId)
             }
+        }
+    }
+
+    fun addMaintenanceImageFromUri(
+        context: Context,
+        uri: Uri,
+        serviceHistoryId: Int,
+        onResult: (Boolean) -> Unit
+    ) {
+        viewModelScope.launch {
+            val success = withContext(Dispatchers.IO) {
+                val contentType = context.contentResolver.getType(uri) ?: "image/jpeg"
+                val bytes = context.contentResolver.openInputStream(uri)?.readBytes()
+                    ?: return@withContext false
+                val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                val name = "image_${System.currentTimeMillis()}.jpg"
+                remoteDataSource.addMaintenanceImage(serviceHistoryId, name, base64, contentType)
+            }
+            if (success) {
+                remoteDataSource.fetchMaintenanceImages(serviceHistoryId)
+            }
+            onResult(success)
         }
     }
 }

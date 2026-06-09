@@ -16,12 +16,15 @@ import com.jon_is_awesome.hfg_portal_app.ui.budget.AddBudgetScreen
 import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetListScreen
 import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetViewModelFactory
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.AddCarLogScreen
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarLogListScreen
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarLogViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarLogViewModelFactory
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarMaintenanceViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarMaintenanceViewModelFactory
+import com.jon_is_awesome.hfg_portal_app.ui.carlogs.ServiceHistoryDetailScreen
 import com.jon_is_awesome.hfg_portal_app.ui.dashboard.DashboardScreen
 import com.jon_is_awesome.hfg_portal_app.ui.dashboard.DashboardViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.dashboard.DashboardViewModelFactory
@@ -85,7 +88,22 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             CarLogListScreen(
                 viewModel = carLogViewModel,
                 remoteViewModel = carMaintenanceViewModel,
-                onAddLogClick = { navController.navigate("add_car_log") }
+                onAddLogClick = { navController.navigate("add_car_log") },
+                onServiceHistoryClick = { history ->
+                    navController.navigate("service_history_detail/${history.id}")
+                }
+            )
+        }
+        composable(
+            "service_history_detail/{serviceHistoryId}",
+            arguments = listOf(navArgument("serviceHistoryId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val serviceHistoryId = backStackEntry.arguments?.getInt("serviceHistoryId")
+                ?: return@composable
+            ServiceHistoryDetailScreen(
+                serviceHistoryId = serviceHistoryId,
+                remoteViewModel = carMaintenanceViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable("add_car_log") {
