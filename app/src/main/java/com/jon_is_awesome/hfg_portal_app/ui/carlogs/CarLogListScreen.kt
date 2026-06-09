@@ -137,28 +137,33 @@ fun ServiceHistoryList(
     } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            contentPadding = PaddingValues(16.dp)
         ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Service", fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
+                    Text("Date", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text("Miles", fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.8f))
+                }
+                HorizontalDivider()
+            }
             items(history) { entry ->
-                Card(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onItemClick(entry) }
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            entry.item ?: "Unknown Service",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text("Date: ${entry.service_date ?: "Unknown"}", style = MaterialTheme.typography.bodySmall)
-                        Text("Mileage: ${entry.mileage ?: 0}", style = MaterialTheme.typography.bodyMedium)
-                        if (!entry.notes.isNullOrBlank()) {
-                            Text("Notes: ${entry.notes}", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
+                    Text(entry.item ?: "Unknown", modifier = Modifier.weight(2f))
+                    Text(entry.service_date ?: "-", modifier = Modifier.weight(1f))
+                    Text(entry.mileage?.toString() ?: "-", modifier = Modifier.weight(0.8f))
                 }
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp), thickness = 0.5.dp)
             }
         }
     }
