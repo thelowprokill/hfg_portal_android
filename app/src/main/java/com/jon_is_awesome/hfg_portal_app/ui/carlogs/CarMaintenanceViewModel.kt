@@ -120,7 +120,7 @@ class CarMaintenanceViewModel(
                 } else bitmap
                 val out = java.io.ByteArrayOutputStream()
                 scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, out)
-                remoteDataSource.addMaintenanceImage(serviceHistoryId, name, out.toByteArray(), "image/jpeg")
+                remoteDataSource.addMaintenanceImage(serviceHistoryId, name, out.toByteArray())
             }
             if (success) {
                 remoteDataSource.fetchMaintenanceImages(serviceHistoryId)

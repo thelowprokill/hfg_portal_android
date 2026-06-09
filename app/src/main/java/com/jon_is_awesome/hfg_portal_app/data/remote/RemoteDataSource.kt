@@ -10,8 +10,8 @@ import io.ktor.client.engine.android.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
-import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -276,24 +276,27 @@ class RemoteDataSource(private val context: Context) {
     suspend fun addMaintenanceImage(
         serviceHistoryId: Int,
         name: String,
-        imageBytes: ByteArray,
-        contentType: String
+        imageBytes: ByteArray
     ): Boolean {
         val baseURL = BuildConfig.BASE_URL
         return client?.let {
             try {
-                val response: GenericResponse = it.put("${baseURL}/apis/call") {
-                    parameter("scope", "car_maintenance:maintenance_images")
-                    parameter("route", "maintenance_image")
-                    setBody(MultiPartFormDataContent(formData {
+                val response: GenericResponse = it.submitFormWithBinaryData(
+                    url = "${baseURL}/apis/call",
+                    formData = formData {
                         append("service_history_id", serviceHistoryId.toString())
                         append("name", name)
-                        append("image_content_type", contentType)
-                        append("image", imageBytes, io.ktor.http.Headers.build {
-                            append(io.ktor.http.HttpHeaders.ContentType, contentType)
-                            append(io.ktor.http.HttpHeaders.ContentDisposition, "filename=\"$name\"")
+                        append("image", imageBytes, Headers.build {
+                            append(HttpHeaders.ContentType, "image/jpeg")
+                            append(HttpHeaders.ContentDisposition, "filename=\"$name\"")
                         })
-                    }))
+                    }
+                ) {
+                    method = HttpMethod.Put
+                    url {
+                        parameters.append("scope", "car_maintenance:maintenance_images")
+                        parameters.append("route", "maintenance_image")
+                    }
                 }.body()
                 Log.d(TAG, "addMaintenanceImage response: ${response.response}")
                 response.response == "ok"
