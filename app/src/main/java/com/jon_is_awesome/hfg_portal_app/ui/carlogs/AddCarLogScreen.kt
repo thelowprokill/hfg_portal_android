@@ -18,6 +18,7 @@ import java.util.*
 
 fun formatDate(timestamp: Long): String {
     val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    sdf.timeZone = TimeZone.getTimeZone("UTC")
     return sdf.format(Date(timestamp))
 }
 
