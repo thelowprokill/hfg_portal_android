@@ -15,9 +15,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.jon_is_awesome.hfg_portal_app.HfgApplication
 import com.jon_is_awesome.hfg_portal_app.ui.budget.AddBudgetScreen
+import com.jon_is_awesome.hfg_portal_app.ui.budget.AddTransactionScreen
+import com.jon_is_awesome.hfg_portal_app.ui.budget.BucketDetailScreen
 import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetListScreen
-import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetViewModel
-import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetViewModelFactory
+import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetRemoteViewModel
+import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetRemoteViewModelFactory
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.AddCarLogScreen
@@ -64,8 +66,8 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         factory = ExpenseViewModelFactory(app, repository)
     )
 
-    val budgetViewModel: BudgetViewModel = viewModel(
-        factory = BudgetViewModelFactory(app, repository)
+    val budgetRemoteViewModel: BudgetRemoteViewModel = viewModel(
+        factory = BudgetRemoteViewModelFactory(app, remoteDataSource)
     )
 
     val settingsViewModel: SettingsViewModel = viewModel(
@@ -143,17 +145,38 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         }
         composable(Screen.Budget.route) {
             BudgetListScreen(
-                viewModel = budgetViewModel,
-                onAddBudgetClick = { navController.navigate("add_budget") }
+                viewModel = budgetRemoteViewModel,
+                onAddBucketClick = { navController.navigate("add_bucket") },
+                onBucketClick = { bucket -> navController.navigate("bucket_detail/${bucket.id}") }
             )
         }
-        composable("add_budget") {
+        composable("add_bucket") {
             AddBudgetScreen(
+                viewModel = budgetRemoteViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            "bucket_detail/{bucketId}",
+            arguments = listOf(navArgument("bucketId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val bucketId = backStackEntry.arguments?.getInt("bucketId") ?: return@composable
+            BucketDetailScreen(
+                bucketId = bucketId,
+                viewModel = budgetRemoteViewModel,
                 onNavigateBack = { navController.popBackStack() },
-                onSaveBudget = { budget ->
-                    budgetViewModel.addBudget(budget)
-                    navController.popBackStack()
-                }
+                onAddTransactionClick = { navController.navigate("add_transaction/$bucketId") }
+            )
+        }
+        composable(
+            "add_transaction/{bucketId}",
+            arguments = listOf(navArgument("bucketId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val bucketId = backStackEntry.arguments?.getInt("bucketId") ?: return@composable
+            AddTransactionScreen(
+                bucketId = bucketId,
+                viewModel = budgetRemoteViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(Screen.Settings.route) {

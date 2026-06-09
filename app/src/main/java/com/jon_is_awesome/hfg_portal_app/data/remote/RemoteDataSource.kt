@@ -36,14 +36,20 @@ class RemoteDataSource(private val context: Context) {
     private val _serviceHistory = MutableStateFlow<List<RemoteServiceHistory>>(emptyList())
     private val _maintenanceItems = MutableStateFlow<List<RemoteMaintenanceItem>>(emptyList())
     private val _maintenanceImages = MutableStateFlow<List<RemoteMaintenanceImage>>(emptyList())
+    private val _buckets = MutableStateFlow<List<RemoteBucket>>(emptyList())
+    private val _transactions = MutableStateFlow<List<RemoteTransaction>>(emptyList())
+    private val _scheduledExpenses = MutableStateFlow<List<RemoteScheduledExpense>>(emptyList())
     private val _isLoggedIn = MutableStateFlow<Boolean?>(null)
     private val _token = MutableStateFlow<String?>(null)
     private val _loginError = MutableSharedFlow<String>()
-    
+
     val cars: StateFlow<List<RemoteCar>> = _cars
     val serviceHistory: StateFlow<List<RemoteServiceHistory>> = _serviceHistory
     val maintenanceItems: StateFlow<List<RemoteMaintenanceItem>> = _maintenanceItems
     val maintenanceImages: StateFlow<List<RemoteMaintenanceImage>> = _maintenanceImages
+    val buckets: StateFlow<List<RemoteBucket>> = _buckets
+    val transactions: StateFlow<List<RemoteTransaction>> = _transactions
+    val scheduledExpenses: StateFlow<List<RemoteScheduledExpense>> = _scheduledExpenses
     val isLoggedIn: StateFlow<Boolean?> = _isLoggedIn
     val loginError = _loginError.asSharedFlow()
 
@@ -135,6 +141,7 @@ class RemoteDataSource(private val context: Context) {
                     initClient(token)
                     _isLoggedIn.value = true
                     fetchCars()
+                    fetchBuckets()
                 } else {
                     Log.w(TAG, "Login failed: jwt is null or blank in response")
                     _isLoggedIn.value = false
@@ -307,6 +314,148 @@ class RemoteDataSource(private val context: Context) {
         } ?: false
     }
 
+    suspend fun fetchBuckets() {
+        val baseURL = BuildConfig.BASE_URL
+        client?.let {
+            try {
+                val response: BucketListResponse = it.get("${baseURL}/apis/call") {
+                    parameter("scope", "budget:buckets")
+                    parameter("route", "buckets")
+                }.body()
+                _buckets.value = response.data
+                Log.d(TAG, "fetchBuckets success: count=${response.data.size}")
+            } catch (e: Exception) {
+                Log.e(TAG, "fetchBuckets error", e)
+            }
+        }
+    }
+
+    suspend fun fetchTransactions(bucketId: Int) {
+        val baseURL = BuildConfig.BASE_URL
+        _transactions.value = emptyList()
+        client?.let {
+            try {
+                val response: TransactionListResponse = it.get("${baseURL}/apis/call") {
+                    parameter("scope", "budget:transactions")
+                    parameter("route", "transactions")
+                    parameter("bucket_id", bucketId)
+                }.body()
+                _transactions.value = response.data
+                Log.d(TAG, "fetchTransactions success for bucket $bucketId: count=${response.data.size}")
+            } catch (e: Exception) {
+                Log.e(TAG, "fetchTransactions error", e)
+            }
+        }
+    }
+
+    suspend fun fetchScheduledExpenses(bucketId: Int) {
+        val baseURL = BuildConfig.BASE_URL
+        _scheduledExpenses.value = emptyList()
+        client?.let {
+            try {
+                val response: ScheduledExpenseListResponse = it.get("${baseURL}/apis/call") {
+                    parameter("scope", "budget:scheduled_expenses")
+                    parameter("route", "scheduled_expenses")
+                    parameter("bucket_id", bucketId)
+                }.body()
+                _scheduledExpenses.value = response.data
+                Log.d(TAG, "fetchScheduledExpenses success for bucket $bucketId: count=${response.data.size}")
+            } catch (e: Exception) {
+                Log.e(TAG, "fetchScheduledExpenses error", e)
+            }
+        }
+    }
+
+    suspend fun addBucket(
+        name: String,
+        description: String,
+        monthlyBudget: String,
+        monthlyContribution: String,
+        maxBalance: String
+    ): Boolean {
+        val baseURL = BuildConfig.BASE_URL
+        return client?.let {
+            try {
+                val response: GenericResponse = it.put("${baseURL}/apis/call") {
+                    parameter("scope", "budget:buckets")
+                    parameter("route", "bucket")
+                    parameter("name", name)
+                    if (description.isNotBlank()) parameter("description", description)
+                    if (monthlyBudget.isNotBlank()) parameter("monthly_budget", monthlyBudget)
+                    if (monthlyContribution.isNotBlank()) parameter("monthly_contribution", monthlyContribution)
+                    if (maxBalance.isNotBlank()) parameter("max_balance", maxBalance)
+                }.body()
+                Log.d(TAG, "addBucket response: ${response.response}")
+                response.response == "ok"
+            } catch (e: Exception) {
+                Log.e(TAG, "addBucket error", e)
+                false
+            }
+        } ?: false
+    }
+
+    suspend fun deleteBucket(id: Int): Boolean {
+        val baseURL = BuildConfig.BASE_URL
+        return client?.let {
+            try {
+                val response: GenericResponse = it.delete("${baseURL}/apis/call") {
+                    parameter("scope", "budget:buckets")
+                    parameter("route", "bucket")
+                    parameter("id", id)
+                }.body()
+                response.response == "ok"
+            } catch (e: Exception) {
+                Log.e(TAG, "deleteBucket error", e)
+                false
+            }
+        } ?: false
+    }
+
+    suspend fun addTransaction(
+        bucketId: Int,
+        amount: String,
+        description: String,
+        transactionDate: String,
+        type: String
+    ): Boolean {
+        val baseURL = BuildConfig.BASE_URL
+        return client?.let {
+            try {
+                val response: GenericResponse = it.put("${baseURL}/apis/call") {
+                    parameter("scope", "budget:transactions")
+                    parameter("route", "transaction")
+                    parameter("bucket_id", bucketId)
+                    parameter("amount", amount)
+                    parameter("description", description)
+                    parameter("transaction_date", transactionDate)
+                    parameter("type", type)
+                }.body()
+                Log.d(TAG, "addTransaction response: ${response.response}")
+                response.response == "ok"
+            } catch (e: Exception) {
+                Log.e(TAG, "addTransaction error", e)
+                false
+            }
+        } ?: false
+    }
+
+    suspend fun deleteTransaction(id: Int): Boolean {
+        val baseURL = BuildConfig.BASE_URL
+        return client?.let {
+            try {
+                val response: GenericResponse = it.delete("${baseURL}/apis/call") {
+                    parameter("scope", "budget:transactions")
+                    parameter("route", "transaction")
+                    parameter("id", id)
+                }.body()
+                response.response == "ok"
+            } catch (e: Exception) {
+                Log.e(TAG, "deleteTransaction error", e)
+                false
+            }
+        } ?: false
+    }
+
     fun logout() {
         Log.d(TAG, "logout called")
         sharedPreferences.edit().clear().apply()
@@ -314,6 +463,9 @@ class RemoteDataSource(private val context: Context) {
         _isLoggedIn.value = false
         _cars.value = emptyList()
         _maintenanceImages.value = emptyList()
+        _buckets.value = emptyList()
+        _transactions.value = emptyList()
+        _scheduledExpenses.value = emptyList()
         client?.close()
         client = null
     }

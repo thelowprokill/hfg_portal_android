@@ -1,144 +1,110 @@
 package com.jon_is_awesome.hfg_portal_app.ui.budget
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import java.util.*
+import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteBucket
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BudgetListScreen(
-    viewModel: BudgetViewModel,
-    onAddBudgetClick: () -> Unit
+    viewModel: BudgetRemoteViewModel,
+    onAddBucketClick: () -> Unit,
+    onBucketClick: (RemoteBucket) -> Unit
 ) {
-    val budgetsWithProgress by viewModel.budgetsWithProgress.collectAsState()
+    val buckets by viewModel.buckets.collectAsState()
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Budgets") }
-            )
+            TopAppBar(title = { Text("Budget") })
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddBudgetClick) {
-                Icon(Icons.Rounded.Add, contentDescription = "Add Budget")
+            if (isLoggedIn == true) {
+                FloatingActionButton(onClick = onAddBucketClick) {
+                    Icon(Icons.Rounded.Add, contentDescription = "Add Bucket")
+                }
             }
         }
     ) { padding ->
-        if (budgetsWithProgress.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("No budgets set. Start by adding one!")
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(budgetsWithProgress) { item ->
-                    BudgetItem(
-                        item = item,
-                        onDeleteClick = { viewModel.deleteBudget(it.budget) }
-                    )
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) {
+            when (isLoggedIn) {
+                true -> {
+                    if (buckets.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No buckets found.")
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp)
+                        ) {
+                            item {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Name", fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
+                                    Text("Balance", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                    Text("Limit/Goal", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                }
+                                HorizontalDivider()
+                            }
+                            items(buckets) { bucket ->
+                                val isSinkingFund = bucket.monthly_budget.toDoubleOrNullSafe() == null
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onBucketClick(bucket) }
+                                        .padding(vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(bucket.name ?: "Unnamed", modifier = Modifier.weight(2f))
+                                    Text(
+                                        formatCurrency(bucket.balance),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        if (isSinkingFund) formatCurrency(bucket.max_balance)
+                                        else formatCurrency(bucket.monthly_budget),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp), thickness = 0.5.dp)
+                            }
+                        }
+                    }
+                }
+                null -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                false -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Please login to view budgets.")
                 }
             }
         }
     }
 }
 
-@Composable
-fun BudgetItem(
-    item: BudgetWithProgress,
-    onDeleteClick: (BudgetWithProgress) -> Unit
-) {
-    val progress = if (item.budget.limitAmount > 0) (item.spentAmount / item.budget.limitAmount).toFloat() else 0f
-    val isOverBudget = item.spentAmount > item.budget.limitAmount
-    val progressColor = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+internal fun String?.toDoubleOrNullSafe(): Double? {
+    val d = this?.toDoubleOrNull() ?: return null
+    return if (d == 0.0) null else d
+}
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = item.budget.category,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                IconButton(onClick = { onDeleteClick(item) }) {
-                    Icon(
-                        imageVector = Icons.Rounded.Delete,
-                        contentDescription = "Delete Budget",
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = String.format(Locale.getDefault(), "Spent: $%.2f", item.spentAmount),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = String.format(Locale.getDefault(), "Limit: $%.2f", item.budget.limitAmount),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            LinearProgressIndicator(
-                progress = { progress.coerceAtMost(1f) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp),
-                color = progressColor,
-                trackColor = progressColor.copy(alpha = 0.2f)
-            )
-
-            if (isOverBudget) {
-                Text(
-                    text = String.format(Locale.getDefault(), "Over budget by $%.2f", item.spentAmount - item.budget.limitAmount),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
-                )
-            } else {
-                Text(
-                    text = String.format(Locale.getDefault(), "Remaining: $%.2f", item.budget.limitAmount - item.spentAmount),
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
-    }
+internal fun formatCurrency(value: String?): String {
+    val d = value?.toDoubleOrNull() ?: return "—"
+    return String.format(Locale.getDefault(), "$%.2f", d)
 }

@@ -5,13 +5,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.jon_is_awesome.hfg_portal_app.data.model.Budget
 import com.jon_is_awesome.hfg_portal_app.data.model.CarLog
 import com.jon_is_awesome.hfg_portal_app.data.model.Expense
 import com.jon_is_awesome.hfg_portal_app.data.model.WeatherInfo
 import com.jon_is_awesome.hfg_portal_app.data.repository.AppRepository
 import com.jon_is_awesome.hfg_portal_app.data.repository.WeatherRepository
-import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetWithProgress
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.*
@@ -19,7 +17,6 @@ import java.util.*
 data class DashboardUiState(
     val totalExpensesThisMonth: Double = 0.0,
     val recentCarLogs: List<CarLog> = emptyList(),
-    val budgetsWithProgress: List<BudgetWithProgress> = emptyList(),
     val weather: WeatherInfo? = null,
     val isLoadingWeather: Boolean = false,
     val weatherError: String? = null
@@ -42,9 +39,8 @@ class DashboardViewModel(
     val uiState: StateFlow<DashboardUiState> = combine(
         repository.getAllExpenses(),
         repository.getAllCarLogs(),
-        repository.getAllBudgets(),
         weatherCombined
-    ) { expenses: List<Expense>, carLogs: List<CarLog>, budgets: List<Budget>, weatherTriple: Triple<WeatherInfo?, Boolean, String?> ->
+    ) { expenses: List<Expense>, carLogs: List<CarLog>, weatherTriple: Triple<WeatherInfo?, Boolean, String?> ->
         val (weather, isLoading, error) = weatherTriple
         val calendar = Calendar.getInstance()
         val currentMonth = calendar.get(Calendar.MONTH)
@@ -55,19 +51,9 @@ class DashboardViewModel(
             expenseCal.get(Calendar.MONTH) == currentMonth && expenseCal.get(Calendar.YEAR) == currentYear
         }.sumOf { it.amount }
 
-        val recentLogs = carLogs.take(3)
-
-        val budgetsProgress = budgets.map { budget ->
-            val spent = expenses
-                .filter { expense -> expense.category.lowercase() == budget.category.lowercase() }
-                .sumOf { it.amount }
-            BudgetWithProgress(budget, spent)
-        }
-
         DashboardUiState(
             totalExpensesThisMonth = totalExpenses,
-            recentCarLogs = recentLogs,
-            budgetsWithProgress = budgetsProgress,
+            recentCarLogs = carLogs.take(3),
             weather = weather,
             isLoadingWeather = isLoading,
             weatherError = error

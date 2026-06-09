@@ -81,3 +81,59 @@ data class RemoteMaintenanceImage(
     val image: String? = null,
     val image_content_type: String? = null
 )
+
+// ---- Budget ----
+
+@Serializable
+data class BucketListResponse(
+    val data: List<RemoteBucket> = emptyList(),
+    val response: String? = null
+)
+
+@Serializable
+data class RemoteBucket(
+    val id: Int,
+    val name: String? = null,
+    val description: String? = null,
+    val balance: String? = null,
+    val monthly_budget: String? = null,
+    val monthly_contribution: String? = null,
+    val max_balance: String? = null
+)
+
+@Serializable
+data class TransactionListResponse(
+    val data: List<RemoteTransaction> = emptyList(),
+    val response: String? = null
+)
+
+@Serializable
+data class RemoteTransaction(
+    val id: Int,
+    val amount: String? = null,
+    val description: String? = null,
+    val transaction_date: String? = null,
+    val type: String? = null,
+    val bucket_id: Int? = null,
+    val scheduled_expense_id: Int? = null
+)
+
+@Serializable
+data class ScheduledExpenseListResponse(
+    val data: List<RemoteScheduledExpense> = emptyList(),
+    val response: String? = null
+)
+
+@Serializable
+data class RemoteScheduledExpense(
+    val id: Int,
+    val amount: String? = null,
+    val description: String? = null,
+    val frequency: String? = null,
+    val day_of_month: Int? = null,
+    val day_of_week: Int? = null,
+    val month_of_year: Int? = null,
+    val next_due_date: String? = null,
+    val active: Boolean? = null,
+    val bucket_id: Int? = null
+)

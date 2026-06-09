@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.android.gms.location.LocationServices
-import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetItem
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarLogItem
 import java.util.*
 
@@ -135,26 +134,26 @@ fun DashboardScreen(
                 }
             }
 
-            // Budget Progress Section
-            if (uiState.budgetsWithProgress.isNotEmpty()) {
-                item {
+            // Budget shortcut
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = onNavigateToBudget,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "Active Budgets",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        TextButton(onClick = onNavigateToBudget) {
-                            Text("See All")
+                        Column {
+                            Text("Budget", style = MaterialTheme.typography.titleMedium)
+                            Text("View buckets & transactions", style = MaterialTheme.typography.bodySmall)
                         }
+                        Icon(Icons.Rounded.Analytics, contentDescription = null)
                     }
-                }
-                items(uiState.budgetsWithProgress.take(2)) { budgetProgress ->
-                    BudgetItem(item = budgetProgress, onDeleteClick = {})
                 }
             }
 
