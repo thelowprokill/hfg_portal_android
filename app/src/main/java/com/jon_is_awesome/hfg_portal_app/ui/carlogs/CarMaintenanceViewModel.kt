@@ -3,7 +3,6 @@ package com.jon_is_awesome.hfg_portal_app.ui.carlogs
 import android.app.Application
 import android.content.Context
 import android.net.Uri
-import android.util.Base64
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -36,6 +35,11 @@ class CarMaintenanceViewModel(
 
     fun selectCar(car: RemoteCar?) {
         _selectedCar.value = car
+        if (car != null) {
+            viewModelScope.launch {
+                remoteDataSource.fetchMaintenanceItems(car.id)
+            }
+        }
     }
 
     fun login(username: String, password: String) {
@@ -76,11 +80,14 @@ class CarMaintenanceViewModel(
         mileage: Int,
         name: String,
         maintenanceItemId: Int,
+        namedItem: String,
         notes: String,
         onResult: (Boolean) -> Unit
     ) {
         viewModelScope.launch {
-            val success = remoteDataSource.addServiceHistory(carId, serviceDate, mileage, name, maintenanceItemId, notes)
+            val success = remoteDataSource.addServiceHistory(
+                carId, serviceDate, mileage, name, maintenanceItemId, namedItem, notes
+            )
             onResult(success)
             if (success) {
                 remoteDataSource.fetchServiceHistory(carId)
@@ -92,16 +99,28 @@ class CarMaintenanceViewModel(
         context: Context,
         uri: Uri,
         serviceHistoryId: Int,
+        name: String,
         onResult: (Boolean) -> Unit
     ) {
         viewModelScope.launch {
             val success = withContext(Dispatchers.IO) {
-                val contentType = context.contentResolver.getType(uri) ?: "image/jpeg"
                 val bytes = context.contentResolver.openInputStream(uri)?.readBytes()
                     ?: return@withContext false
-                val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                val name = "image_${System.currentTimeMillis()}.jpg"
-                remoteDataSource.addMaintenanceImage(serviceHistoryId, name, base64, contentType)
+                val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    ?: return@withContext false
+                val maxDim = 1024
+                val scaled = if (bitmap.width > maxDim || bitmap.height > maxDim) {
+                    val scale = maxDim.toFloat() / maxOf(bitmap.width, bitmap.height)
+                    android.graphics.Bitmap.createScaledBitmap(
+                        bitmap,
+                        (bitmap.width * scale).toInt(),
+                        (bitmap.height * scale).toInt(),
+                        true
+                    )
+                } else bitmap
+                val out = java.io.ByteArrayOutputStream()
+                scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, out)
+                remoteDataSource.addMaintenanceImage(serviceHistoryId, name, out.toByteArray(), "image/jpeg")
             }
             if (success) {
                 remoteDataSource.fetchMaintenanceImages(serviceHistoryId)

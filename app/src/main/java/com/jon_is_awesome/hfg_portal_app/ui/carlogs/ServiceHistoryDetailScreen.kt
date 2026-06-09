@@ -40,6 +40,9 @@ fun ServiceHistoryDetailScreen(
 
     var isUploading by remember { mutableStateOf(false) }
     var uploadError by remember { mutableStateOf<String?>(null) }
+    var pendingUri by remember { mutableStateOf<Uri?>(null) }
+    var showNameDialog by remember { mutableStateOf(false) }
+    var imageName by remember { mutableStateOf("") }
 
     LaunchedEffect(serviceHistoryId) {
         remoteViewModel.fetchMaintenanceImages(serviceHistoryId)
@@ -49,13 +52,58 @@ fun ServiceHistoryDetailScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            isUploading = true
-            uploadError = null
-            remoteViewModel.addMaintenanceImageFromUri(context, uri, serviceHistoryId) { success ->
-                isUploading = false
-                if (!success) uploadError = "Failed to upload image. Please try again."
-            }
+            pendingUri = uri
+            imageName = ""
+            showNameDialog = true
         }
+    }
+
+    if (showNameDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showNameDialog = false
+                pendingUri = null
+                imageName = ""
+            },
+            title = { Text("Image Name") },
+            text = {
+                OutlinedTextField(
+                    value = imageName,
+                    onValueChange = { imageName = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val uri = pendingUri
+                        if (uri != null && imageName.isNotBlank()) {
+                            showNameDialog = false
+                            isUploading = true
+                            uploadError = null
+                            remoteViewModel.addMaintenanceImageFromUri(
+                                context, uri, serviceHistoryId, imageName
+                            ) { success ->
+                                isUploading = false
+                                if (!success) uploadError = "Failed to upload image. Please try again."
+                            }
+                            pendingUri = null
+                            imageName = ""
+                        }
+                    },
+                    enabled = imageName.isNotBlank()
+                ) { Text("Upload") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showNameDialog = false
+                    pendingUri = null
+                    imageName = ""
+                }) { Text("Cancel") }
+            }
+        )
     }
 
     Scaffold(

@@ -10,6 +10,8 @@ import io.ktor.client.engine.android.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -113,7 +115,7 @@ class RemoteDataSource(private val context: Context) {
                 }
                 
                 // Detailed logging to compare with Postman
-                Log.d(TAG, "Actual Request URL: ${httpResponse.request.url}")
+                //Log.d(TAG, "Actual Request URL: ${httpResponse.request.url}")
                 Log.d(TAG, "Request Headers: ${httpResponse.request.headers.entries()}")
                 
                 val bodyText = httpResponse.bodyAsText()
@@ -227,6 +229,7 @@ class RemoteDataSource(private val context: Context) {
         mileage: Int,
         name: String,
         maintenanceItemId: Int,
+        namedItem: String,
         notes: String
     ): Boolean {
         val baseURL = BuildConfig.BASE_URL
@@ -239,7 +242,8 @@ class RemoteDataSource(private val context: Context) {
                     parameter("service_date", serviceDate)
                     parameter("mileage", mileage)
                     parameter("name", name)
-                    parameter("maintenance_item_id", maintenanceItemId)
+                    parameter("item_id", maintenanceItemId)
+                    parameter("named_item", namedItem)
                     parameter("notes", notes)
                 }.body()
                 Log.d(TAG, "addServiceHistory response: ${response.response}")
@@ -272,7 +276,7 @@ class RemoteDataSource(private val context: Context) {
     suspend fun addMaintenanceImage(
         serviceHistoryId: Int,
         name: String,
-        imageBase64: String,
+        imageBytes: ByteArray,
         contentType: String
     ): Boolean {
         val baseURL = BuildConfig.BASE_URL
@@ -281,10 +285,15 @@ class RemoteDataSource(private val context: Context) {
                 val response: GenericResponse = it.put("${baseURL}/apis/call") {
                     parameter("scope", "car_maintenance:maintenance_images")
                     parameter("route", "maintenance_image")
-                    parameter("service_history_id", serviceHistoryId)
-                    parameter("name", name)
-                    parameter("image", imageBase64)
-                    parameter("image_content_type", contentType)
+                    setBody(MultiPartFormDataContent(formData {
+                        append("service_history_id", serviceHistoryId.toString())
+                        append("name", name)
+                        append("image_content_type", contentType)
+                        append("image", imageBytes, io.ktor.http.Headers.build {
+                            append(io.ktor.http.HttpHeaders.ContentType, contentType)
+                            append(io.ktor.http.HttpHeaders.ContentDisposition, "filename=\"$name\"")
+                        })
+                    }))
                 }.body()
                 Log.d(TAG, "addMaintenanceImage response: ${response.response}")
                 response.response == "ok"

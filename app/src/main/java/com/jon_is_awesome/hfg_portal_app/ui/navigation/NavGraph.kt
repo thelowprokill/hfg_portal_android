@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -24,6 +26,7 @@ import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarLogViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarLogViewModelFactory
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarMaintenanceViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarMaintenanceViewModelFactory
+import com.jon_is_awesome.hfg_portal_app.ui.carlogs.AddServiceHistoryScreen
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.ServiceHistoryDetailScreen
 import com.jon_is_awesome.hfg_portal_app.ui.dashboard.DashboardScreen
 import com.jon_is_awesome.hfg_portal_app.ui.dashboard.DashboardViewModel
@@ -88,10 +91,16 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             CarLogListScreen(
                 viewModel = carLogViewModel,
                 remoteViewModel = carMaintenanceViewModel,
-                onAddLogClick = { navController.navigate("add_car_log") },
+                onAddLogClick = { navController.navigate("add_service_history") },
                 onServiceHistoryClick = { history ->
                     navController.navigate("service_history_detail/${history.id}")
                 }
+            )
+        }
+        composable("add_service_history") {
+            AddServiceHistoryScreen(
+                remoteViewModel = carMaintenanceViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(
@@ -107,7 +116,9 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             )
         }
         composable("add_car_log") {
+            val selectedCar by carMaintenanceViewModel.selectedCar.collectAsState()
             AddCarLogScreen(
+                vehicleName = selectedCar?.name,
                 onNavigateBack = { navController.popBackStack() },
                 onSaveLog = { log ->
                     carLogViewModel.addCarLog(log)
