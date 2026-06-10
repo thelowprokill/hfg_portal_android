@@ -24,9 +24,21 @@ import androidx.navigation.compose.rememberNavController
 import com.jon_is_awesome.hfg_portal_app.ui.auth.AuthViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.auth.AuthViewModelFactory
 import com.jon_is_awesome.hfg_portal_app.ui.auth.LoginScreen
+import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetRemoteViewModel
+import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetRemoteViewModelFactory
+import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarMaintenanceViewModel
+import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarMaintenanceViewModelFactory
 import com.jon_is_awesome.hfg_portal_app.ui.navigation.NavGraph
 import com.jon_is_awesome.hfg_portal_app.ui.navigation.Screen
 import com.jon_is_awesome.hfg_portal_app.ui.theme.Hfg_portal_appTheme
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.rotate
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -69,8 +81,23 @@ fun MainScreen(authViewModel: AuthViewModel) {
     val app = context.applicationContext as HfgApplication
     val userPrefs = app.userPreferencesRepository
     val userName by userPrefs.userName.collectAsState(initial = "User")
-    
+
+    val budgetVm: BudgetRemoteViewModel = viewModel(
+        factory = BudgetRemoteViewModelFactory(app, app.remoteDataSource)
+    )
+    val carVm: CarMaintenanceViewModel = viewModel(
+        factory = CarMaintenanceViewModelFactory(app, app.remoteDataSource)
+    )
+
     var isAdminMode by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    val infiniteTransition = rememberInfiniteTransition(label = "refresh")
+    val refreshAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(800, easing = LinearEasing)),
+        label = "refreshRotation"
+    )
 
     // On first launch, navigate directly to the last accessed section
     LaunchedEffect(Unit) {
@@ -230,7 +257,7 @@ fun MainScreen(authViewModel: AuthViewModel) {
             modifier = Modifier.fillMaxSize(),
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { 
+                    title = {
                         Text(
                             text = when {
                                 currentDestination?.route == Screen.Dashboard.route -> "Home"
@@ -242,11 +269,53 @@ fun MainScreen(authViewModel: AuthViewModel) {
                                 currentDestination?.route == Screen.Settings.route -> "Settings"
                                 else -> "HFG Portal"
                             }
-                        ) 
+                        )
                     },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                    },
+                    actions = {
+                        val route = currentDestination?.route
+                        val isRefreshable = route == Screen.Budget.route
+                            || route == Screen.CarLogs.route
+                            || route?.startsWith("bucket_detail") == true
+                            || route?.startsWith("service_history_detail") == true
+                        if (isRefreshable) {
+                            val bucketId = navBackStackEntry?.arguments?.getInt("bucketId")
+                            val histId = navBackStackEntry?.arguments?.getInt("serviceHistoryId")
+                            IconButton(
+                                onClick = {
+                                    if (!isRefreshing) {
+                                        isRefreshing = true
+                                        scope.launch {
+                                            val minDelay = async { delay(2000) }
+                                            val work = async {
+                                                when {
+                                                    route == Screen.Budget.route ->
+                                                        budgetVm.refreshBudgetList()
+                                                    route?.startsWith("bucket_detail") == true && bucketId != null ->
+                                                        budgetVm.refreshBucketDetail(bucketId)
+                                                    route == Screen.CarLogs.route ->
+                                                        carVm.refreshCarList()
+                                                    route?.startsWith("service_history_detail") == true && histId != null ->
+                                                        carVm.refreshServiceHistoryDetail(histId)
+                                                }
+                                            }
+                                            minDelay.await()
+                                            work.await()
+                                            isRefreshing = false
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Refresh,
+                                    contentDescription = "Refresh",
+                                    modifier = Modifier.rotate(if (isRefreshing) refreshAngle else 0f)
+                                )
+                            }
                         }
                     }
                 )

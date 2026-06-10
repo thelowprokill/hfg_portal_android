@@ -9,6 +9,7 @@ import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteDataSource
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteBucket
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteTransaction
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteScheduledExpense
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
@@ -29,6 +30,18 @@ class BudgetRemoteViewModel(
 
     fun fetchAllTransactions() {
         viewModelScope.launch { remoteDataSource.fetchAllTransactions() }
+    }
+
+    suspend fun refreshBudgetList() {
+        coroutineScope {
+            launch { remoteDataSource.fetchBuckets() }
+            launch { remoteDataSource.fetchAllTransactions() }
+        }
+    }
+
+    suspend fun refreshBucketDetail(bucketId: Int) {
+        remoteDataSource.fetchTransactions(bucketId)
+        remoteDataSource.fetchScheduledExpenses(bucketId)
     }
 
     fun fetchBucketDetail(bucketId: Int) {

@@ -74,6 +74,15 @@ class CarMaintenanceViewModel(
         }
     }
 
+    suspend fun refreshCarList() {
+        remoteDataSource.fetchCars()
+        selectedCar.value?.let { remoteDataSource.fetchServiceHistory(it.id) }
+    }
+
+    suspend fun refreshServiceHistoryDetail(serviceHistoryId: Int) {
+        remoteDataSource.fetchMaintenanceImages(serviceHistoryId)
+    }
+
     fun addServiceHistory(
         carId: Int,
         serviceDate: String,
