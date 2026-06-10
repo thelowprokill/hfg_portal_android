@@ -47,6 +47,7 @@ fun AddExpenseScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Add Expense") },
+                windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")

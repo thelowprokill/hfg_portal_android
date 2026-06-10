@@ -31,7 +31,8 @@ fun ExpenseListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Expenses") }
+                title = { Text("Expenses") },
+                windowInsets = WindowInsets(0)
             )
         },
         floatingActionButton = {

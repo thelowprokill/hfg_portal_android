@@ -2,6 +2,7 @@ package com.jon_is_awesome.hfg_portal_app.ui.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -30,9 +31,6 @@ import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarMaintenanceViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarMaintenanceViewModelFactory
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.AddServiceHistoryScreen
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.ServiceHistoryDetailScreen
-import com.jon_is_awesome.hfg_portal_app.ui.dashboard.DashboardScreen
-import com.jon_is_awesome.hfg_portal_app.ui.dashboard.DashboardViewModel
-import com.jon_is_awesome.hfg_portal_app.ui.dashboard.DashboardViewModelFactory
 import com.jon_is_awesome.hfg_portal_app.ui.expenses.AddExpenseScreen
 import com.jon_is_awesome.hfg_portal_app.ui.expenses.ExpenseListScreen
 import com.jon_is_awesome.hfg_portal_app.ui.expenses.ExpenseViewModel
@@ -47,12 +45,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
     val app = context.applicationContext as HfgApplication
     val repository = app.repository
     val userPreferencesRepository = app.userPreferencesRepository
-    val weatherRepository = app.weatherRepository
     val remoteDataSource = app.remoteDataSource
-    
-    val dashboardViewModel: DashboardViewModel = viewModel(
-        factory = DashboardViewModelFactory(app, repository, weatherRepository)
-    )
     
     val carLogViewModel: CarLogViewModel = viewModel(
         factory = CarLogViewModelFactory(app, repository)
@@ -80,14 +73,13 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         modifier = modifier
     ) {
         composable(Screen.Dashboard.route) {
-            DashboardScreen(
-                viewModel = dashboardViewModel,
-                onNavigateToExpenses = { navController.navigate(Screen.Expenses.route) },
-                onNavigateToCarLogs = { navController.navigate(Screen.CarLogs.route) },
-                onNavigateToBudget = { navController.navigate(Screen.Budget.route) },
-                onAddExpense = { navController.navigate("add_expense") },
-                onAddCarLog = { navController.navigate("add_car_log") }
-            )
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    "Select a section from the menu",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         composable(Screen.CarLogs.route) {
             CarLogListScreen(

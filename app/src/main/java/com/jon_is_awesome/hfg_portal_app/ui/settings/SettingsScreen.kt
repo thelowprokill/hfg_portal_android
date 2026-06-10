@@ -23,7 +23,7 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Settings") })
+            TopAppBar(title = { Text("Settings") }, windowInsets = WindowInsets(0))
         }
     ) { padding ->
         Column(

@@ -27,6 +27,7 @@ import com.jon_is_awesome.hfg_portal_app.ui.auth.LoginScreen
 import com.jon_is_awesome.hfg_portal_app.ui.navigation.NavGraph
 import com.jon_is_awesome.hfg_portal_app.ui.navigation.Screen
 import com.jon_is_awesome.hfg_portal_app.ui.theme.Hfg_portal_appTheme
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -71,8 +72,18 @@ fun MainScreen(authViewModel: AuthViewModel) {
     
     var isAdminMode by remember { mutableStateOf(false) }
 
+    // On first launch, navigate directly to the last accessed section
+    LaunchedEffect(Unit) {
+        val lastSection = userPrefs.lastSection.first()
+        if (!lastSection.isNullOrBlank()) {
+            navController.navigate(lastSection) {
+                popUpTo(Screen.Dashboard.route) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
     val menuItems = listOf(
-        Screen.Dashboard,
         Screen.Budget,
         Screen.CarLogs
     )
@@ -168,6 +179,9 @@ fun MainScreen(authViewModel: AuthViewModel) {
                                     launchSingleTop = true
                                     restoreState = true
                                 }
+                                if (screen.route == Screen.Budget.route || screen.route == Screen.CarLogs.route) {
+                                    scope.launch { userPrefs.saveLastSection(screen.route) }
+                                }
                                 scope.launch { drawerState.close() }
                             },
                             colors = NavigationDrawerItemDefaults.colors(
@@ -218,10 +232,14 @@ fun MainScreen(authViewModel: AuthViewModel) {
                 CenterAlignedTopAppBar(
                     title = { 
                         Text(
-                            text = when(currentDestination?.route) {
-                                Screen.Dashboard.route -> "Home"
-                                Screen.CarLogs.route -> "Car Maintenance"
-                                Screen.Budget.route -> "Budget"
+                            text = when {
+                                currentDestination?.route == Screen.Dashboard.route -> "Home"
+                                currentDestination?.route?.startsWith("car_") == true -> "Car Maintenance"
+                                currentDestination?.route?.startsWith("budget") == true
+                                    || currentDestination?.route?.startsWith("bucket") == true
+                                    || currentDestination?.route?.startsWith("add_bucket") == true
+                                    || currentDestination?.route?.startsWith("add_transaction") == true -> "Budget"
+                                currentDestination?.route == Screen.Settings.route -> "Settings"
                                 else -> "HFG Portal"
                             }
                         ) 

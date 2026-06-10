@@ -43,6 +43,7 @@ fun AddTransactionScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Add Transaction") },
+                windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")

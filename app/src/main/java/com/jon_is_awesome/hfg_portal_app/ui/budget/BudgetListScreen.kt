@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,7 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteBucket
-import java.util.Locale
+import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteTransaction
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,18 +27,48 @@ fun BudgetListScreen(
     onBucketClick: (RemoteBucket) -> Unit
 ) {
     val buckets by viewModel.buckets.collectAsState()
+    val allTransactions by viewModel.allTransactions.collectAsState()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+
+    val now = remember { Calendar.getInstance() }
+    var selectedMonth by remember { mutableIntStateOf(now.get(Calendar.MONTH)) }
+    var selectedYear by remember { mutableIntStateOf(now.get(Calendar.YEAR)) }
+
+    val monthLabel = remember(selectedMonth, selectedYear) {
+        val cal = Calendar.getInstance().also {
+            it.set(Calendar.MONTH, selectedMonth)
+            it.set(Calendar.YEAR, selectedYear)
+        }
+        SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)
+    }
+
+    val monthlySpentByBucket = remember(allTransactions, selectedMonth, selectedYear) {
+        allTransactions
+            .filter { tx ->
+                tx.transaction_date?.let { d ->
+                    val parts = d.split("-")
+                    parts.size >= 2
+                        && parts[0].toIntOrNull() == selectedYear
+                        && (parts[1].toIntOrNull()?.minus(1)) == selectedMonth
+                } ?: false
+            }
+            .groupBy { it.bucket_id ?: -1 }
+            .mapValues { (_, txs) -> txs.mapNotNull { it.amount?.toDoubleOrNull() }.sum() }
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Budget") })
-        },
-        floatingActionButton = {
-            if (isLoggedIn == true) {
-                FloatingActionButton(onClick = onAddBucketClick) {
-                    Icon(Icons.Rounded.Add, contentDescription = "Add Bucket")
+            TopAppBar(
+                title = { Text("Budget") },
+                windowInsets = WindowInsets(0),
+                actions = {
+                    if (isLoggedIn == true) {
+                        IconButton(onClick = onAddBucketClick) {
+                            Icon(Icons.Rounded.Add, contentDescription = "Add Bucket")
+                        }
+                    }
                 }
-            }
+            )
         }
     ) { padding ->
         Box(
@@ -44,55 +78,214 @@ fun BudgetListScreen(
         ) {
             when (isLoggedIn) {
                 true -> {
-                    if (buckets.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No buckets found.")
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp)
-                        ) {
-                            item {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("Name", fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
-                                    Text("Balance", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                    Text("Limit/Goal", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(onClick = {
+                                    if (selectedMonth == 0) { selectedMonth = 11; selectedYear-- }
+                                    else selectedMonth--
+                                }) {
+                                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = "Previous month")
                                 }
-                                HorizontalDivider()
+                                Text(monthLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                IconButton(onClick = {
+                                    if (selectedMonth == 11) { selectedMonth = 0; selectedYear++ }
+                                    else selectedMonth++
+                                }) {
+                                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "Next month")
+                                }
                             }
-                            items(buckets) { bucket ->
-                                val isSinkingFund = bucket.monthly_budget.toDoubleOrNullSafe() == null
-                                Row(
+                        }
+
+                        if (buckets.isEmpty()) {
+                            item {
+                                Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable { onBucketClick(bucket) }
-                                        .padding(vertical = 12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                        .padding(top = 64.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Text(bucket.name ?: "Unnamed", modifier = Modifier.weight(2f))
-                                    Text(
-                                        formatCurrency(bucket.balance),
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Text(
-                                        if (isSinkingFund) formatCurrency(bucket.max_balance)
-                                        else formatCurrency(bucket.monthly_budget),
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                    Text("No buckets found.")
                                 }
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp), thickness = 0.5.dp)
+                            }
+                        } else {
+                            items(buckets) { bucket ->
+                                val isSinkingFund = bucket.monthly_budget.toDoubleOrNullSafe() == null
+                                val monthlySpent = monthlySpentByBucket[bucket.id] ?: 0.0
+                                BucketCard(
+                                    bucket = bucket,
+                                    isSinkingFund = isSinkingFund,
+                                    monthlySpent = monthlySpent,
+                                    onClick = { onBucketClick(bucket) }
+                                )
                             }
                         }
+
+                        item { Spacer(Modifier.height(16.dp)) }
                     }
                 }
                 null -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 false -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Please login to view budgets.")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BucketCard(
+    bucket: RemoteBucket,
+    isSinkingFund: Boolean,
+    monthlySpent: Double,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    bucket.name ?: "Unnamed",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (isSinkingFund) {
+                    Text(
+                        "SINKING FUND",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            if (isSinkingFund) {
+                val saved = bucket.balance?.toDoubleOrNull() ?: 0.0
+                val goal = bucket.max_balance?.toDoubleOrNull()
+                val goalReached = goal != null && saved >= goal
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Saved",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "${formatCurrency(bucket.balance)} / ${formatCurrency(bucket.max_balance)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (goalReached) MaterialTheme.colorScheme.secondary
+                                else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                if (goal != null && goal > 0) {
+                    val progress = (saved / goal).toFloat().coerceIn(0f, 1f)
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        color = MaterialTheme.colorScheme.secondary,
+                        trackColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
+                    )
+                    Text(
+                        if (goalReached) "Goal reached!"
+                        else "${formatCurrency((goal - saved).toString())} remaining to fill",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (goalReached) MaterialTheme.colorScheme.secondary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                val contribution = bucket.monthly_contribution?.toDoubleOrNull()
+                if (contribution != null && contribution > 0) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp), thickness = 0.5.dp)
+                    val monthFull = monthlySpent >= contribution
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "This month",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "${formatCurrency(monthlySpent.toString())} / ${formatCurrency(bucket.monthly_contribution)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (monthFull) MaterialTheme.colorScheme.secondary
+                                    else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    val monthProgress = (monthlySpent / contribution).toFloat().coerceIn(0f, 1f)
+                    LinearProgressIndicator(
+                        progress = { monthProgress },
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        color = MaterialTheme.colorScheme.secondary,
+                        trackColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
+                    )
+                }
+            } else {
+                val budget = bucket.monthly_budget?.toDoubleOrNull()
+                val overBudget = budget != null && monthlySpent > budget
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Spent this month",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "${formatCurrency(monthlySpent.toString())} / ${formatCurrency(bucket.monthly_budget)}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                if (budget != null && budget > 0) {
+                    val progress = (monthlySpent / budget).toFloat().coerceIn(0f, 1f)
+                    val barColor = when {
+                        overBudget -> MaterialTheme.colorScheme.error
+                        progress > 0.8f -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        color = barColor,
+                        trackColor = barColor.copy(alpha = 0.2f)
+                    )
+                    Text(
+                        if (overBudget)
+                            "Over budget by ${formatCurrency((monthlySpent - budget).toString())}"
+                        else
+                            "${formatCurrency((budget - monthlySpent).toString())} remaining this month",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (overBudget) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

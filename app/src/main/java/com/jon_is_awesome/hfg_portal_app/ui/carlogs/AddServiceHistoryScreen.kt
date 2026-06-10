@@ -58,6 +58,7 @@ fun AddServiceHistoryScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Add Service History") },
+                windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")

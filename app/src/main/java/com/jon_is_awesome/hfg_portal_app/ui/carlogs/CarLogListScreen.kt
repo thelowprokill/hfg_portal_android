@@ -35,6 +35,7 @@ fun CarLogListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0),
                 title = {
                     Text(if (selectedCar != null) "Service History: ${selectedCar?.name}" else "Car Maintenance")
                 },

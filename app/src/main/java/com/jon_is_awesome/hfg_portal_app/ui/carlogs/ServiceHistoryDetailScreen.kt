@@ -122,6 +122,7 @@ fun ServiceHistoryDetailScreen(
         topBar = {
             TopAppBar(
                 title = { Text(entry?.item ?: "Service Detail") },
+                windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")

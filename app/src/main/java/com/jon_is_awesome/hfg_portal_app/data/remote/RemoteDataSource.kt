@@ -38,6 +38,7 @@ class RemoteDataSource(private val context: Context) {
     private val _maintenanceImages = MutableStateFlow<List<RemoteMaintenanceImage>>(emptyList())
     private val _buckets = MutableStateFlow<List<RemoteBucket>>(emptyList())
     private val _transactions = MutableStateFlow<List<RemoteTransaction>>(emptyList())
+    private val _allTransactions = MutableStateFlow<List<RemoteTransaction>>(emptyList())
     private val _scheduledExpenses = MutableStateFlow<List<RemoteScheduledExpense>>(emptyList())
     private val _isLoggedIn = MutableStateFlow<Boolean?>(null)
     private val _token = MutableStateFlow<String?>(null)
@@ -49,6 +50,7 @@ class RemoteDataSource(private val context: Context) {
     val maintenanceImages: StateFlow<List<RemoteMaintenanceImage>> = _maintenanceImages
     val buckets: StateFlow<List<RemoteBucket>> = _buckets
     val transactions: StateFlow<List<RemoteTransaction>> = _transactions
+    val allTransactions: StateFlow<List<RemoteTransaction>> = _allTransactions
     val scheduledExpenses: StateFlow<List<RemoteScheduledExpense>> = _scheduledExpenses
     val isLoggedIn: StateFlow<Boolean?> = _isLoggedIn
     val loginError = _loginError.asSharedFlow()
@@ -142,6 +144,7 @@ class RemoteDataSource(private val context: Context) {
                     _isLoggedIn.value = true
                     fetchCars()
                     fetchBuckets()
+                    fetchAllTransactions()
                 } else {
                     Log.w(TAG, "Login failed: jwt is null or blank in response")
                     _isLoggedIn.value = false
@@ -348,6 +351,22 @@ class RemoteDataSource(private val context: Context) {
         }
     }
 
+    suspend fun fetchAllTransactions() {
+        val baseURL = BuildConfig.BASE_URL
+        client?.let {
+            try {
+                val response: TransactionListResponse = it.get("${baseURL}/apis/call") {
+                    parameter("scope", "budget:transactions")
+                    parameter("route", "transactions")
+                }.body()
+                _allTransactions.value = response.data
+                Log.d(TAG, "fetchAllTransactions success: count=${response.data.size}")
+            } catch (e: Exception) {
+                Log.e(TAG, "fetchAllTransactions error", e)
+            }
+        }
+    }
+
     suspend fun fetchScheduledExpenses(bucketId: Int) {
         val baseURL = BuildConfig.BASE_URL
         _scheduledExpenses.value = emptyList()
@@ -465,6 +484,7 @@ class RemoteDataSource(private val context: Context) {
         _maintenanceImages.value = emptyList()
         _buckets.value = emptyList()
         _transactions.value = emptyList()
+        _allTransactions.value = emptyList()
         _scheduledExpenses.value = emptyList()
         client?.close()
         client = null

@@ -19,11 +19,16 @@ class BudgetRemoteViewModel(
 
     val buckets: StateFlow<List<RemoteBucket>> = remoteDataSource.buckets
     val transactions: StateFlow<List<RemoteTransaction>> = remoteDataSource.transactions
+    val allTransactions: StateFlow<List<RemoteTransaction>> = remoteDataSource.allTransactions
     val scheduledExpenses: StateFlow<List<RemoteScheduledExpense>> = remoteDataSource.scheduledExpenses
     val isLoggedIn: StateFlow<Boolean?> = remoteDataSource.isLoggedIn
 
     fun fetchBuckets() {
         viewModelScope.launch { remoteDataSource.fetchBuckets() }
+    }
+
+    fun fetchAllTransactions() {
+        viewModelScope.launch { remoteDataSource.fetchAllTransactions() }
     }
 
     fun fetchBucketDetail(bucketId: Int) {
@@ -69,6 +74,7 @@ class BudgetRemoteViewModel(
             if (success) {
                 remoteDataSource.fetchTransactions(bucketId)
                 remoteDataSource.fetchBuckets()
+                remoteDataSource.fetchAllTransactions()
             }
             onResult(success)
         }
@@ -80,6 +86,7 @@ class BudgetRemoteViewModel(
             if (success) {
                 remoteDataSource.fetchTransactions(bucketId)
                 remoteDataSource.fetchBuckets()
+                remoteDataSource.fetchAllTransactions()
             }
             onResult(success)
         }

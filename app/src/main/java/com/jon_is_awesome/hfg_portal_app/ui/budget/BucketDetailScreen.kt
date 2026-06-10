@@ -5,8 +5,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +16,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteScheduledExpense
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteTransaction
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,6 +32,36 @@ fun BucketDetailScreen(
     val scheduledExpenses by viewModel.scheduledExpenses.collectAsState()
 
     val bucket = buckets.find { it.id == bucketId }
+    val isSinkingFund = bucket?.monthly_budget.toDoubleOrNullSafe() == null
+
+    // Filter scheduled expenses client-side in case the API returns all
+    val bucketScheduledExpenses = scheduledExpenses.filter { it.bucket_id == bucketId }
+
+    // Month navigation
+    val now = remember { Calendar.getInstance() }
+    var selectedMonth by remember { mutableIntStateOf(now.get(Calendar.MONTH)) }
+    var selectedYear by remember { mutableIntStateOf(now.get(Calendar.YEAR)) }
+
+    val monthLabel = remember(selectedMonth, selectedYear) {
+        val cal = Calendar.getInstance().also {
+            it.set(Calendar.MONTH, selectedMonth)
+            it.set(Calendar.YEAR, selectedYear)
+        }
+        SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)
+    }
+
+    // Filter transactions to the selected month
+    val filteredTransactions = transactions.filter { tx ->
+        tx.transaction_date?.let { d ->
+            val parts = d.split("-")
+            parts.size >= 2
+                && parts[0].toIntOrNull() == selectedYear
+                && (parts[1].toIntOrNull()?.minus(1)) == selectedMonth
+        } ?: false
+    }
+
+    // Monthly spend — sum of all transaction amounts for the selected month
+    val monthlySpent = filteredTransactions.mapNotNull { it.amount?.toDoubleOrNull() }.sum()
 
     var transactionToDelete by remember { mutableStateOf<RemoteTransaction?>(null) }
     var showDeleteBucketDialog by remember { mutableStateOf(false) }
@@ -76,6 +109,7 @@ fun BucketDetailScreen(
         topBar = {
             TopAppBar(
                 title = { Text(bucket?.name ?: "Bucket") },
+                windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
@@ -88,55 +122,73 @@ fun BucketDetailScreen(
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddTransactionClick) {
-                Icon(Icons.Rounded.Add, contentDescription = "Add Transaction")
-            }
         }
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(0.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // Bucket info card
+            // Month navigation
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = {
+                        if (selectedMonth == 0) { selectedMonth = 11; selectedYear-- }
+                        else selectedMonth--
+                    }) {
+                        Icon(Icons.Rounded.KeyboardArrowLeft, contentDescription = "Previous month")
+                    }
+                    Text(monthLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    IconButton(onClick = {
+                        if (selectedMonth == 11) { selectedMonth = 0; selectedYear++ }
+                        else selectedMonth++
+                    }) {
+                        Icon(Icons.Rounded.KeyboardArrowRight, contentDescription = "Next month")
+                    }
+                }
+            }
+
+            // Summary card
             bucket?.let { b ->
-                val isSinkingFund = b.monthly_budget.toDoubleOrNullSafe() == null
                 item {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 16.dp)
+                            .padding(vertical = 8.dp)
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             if (!b.description.isNullOrBlank()) {
-                                Text(b.description, style = MaterialTheme.typography.bodyMedium)
+                                Text(b.description, style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
+
                             if (isSinkingFund) {
-                                // Sinking fund: show balance vs goal
+                                val saved = b.balance?.toDoubleOrNull() ?: 0.0
+                                val goal = b.max_balance?.toDoubleOrNull()
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    LabeledValue("Saved", formatCurrency(b.balance))
-                                    LabeledValue("Goal", formatCurrency(b.max_balance))
-                                    LabeledValue("Monthly +", formatCurrency(b.monthly_contribution))
+                                    Text("Saved", style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        "${formatCurrency(b.balance)} / ${formatCurrency(b.max_balance)}",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
                                 }
-                                val saved = b.balance?.toDoubleOrNull() ?: 0.0
-                                val goal = b.max_balance?.toDoubleOrNull()
                                 if (goal != null && goal > 0) {
                                     val progress = (saved / goal).toFloat().coerceIn(0f, 1f)
                                     val goalReached = saved >= goal
                                     val color = if (goalReached) MaterialTheme.colorScheme.primary
-                                                else if (progress > 0.8f) MaterialTheme.colorScheme.tertiary
                                                 else MaterialTheme.colorScheme.secondary
-                                    Spacer(Modifier.height(4.dp))
                                     LinearProgressIndicator(
                                         progress = { progress },
                                         modifier = Modifier.fillMaxWidth().height(8.dp),
@@ -151,24 +203,32 @@ fun BucketDetailScreen(
                                                 else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                                if (!b.monthly_contribution.isNullOrBlank()) {
+                                    Text(
+                                        "Monthly contribution: ${formatCurrency(b.monthly_contribution)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             } else {
-                                // Budget bucket: show balance vs monthly budget
+                                val budget = b.monthly_budget?.toDoubleOrNull()
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    LabeledValue("Balance", formatCurrency(b.balance))
-                                    LabeledValue("Monthly Budget", formatCurrency(b.monthly_budget))
+                                    Text("Spent this month", style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        "${formatCurrency(monthlySpent.toString())} / ${formatCurrency(b.monthly_budget)}",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
                                 }
-                                val balance = b.balance?.toDoubleOrNull()
-                                val budget = b.monthly_budget?.toDoubleOrNull()
-                                if (balance != null && budget != null && budget > 0) {
-                                    val progress = (balance / budget).toFloat().coerceIn(0f, 1f)
-                                    val overBudget = balance > budget
+                                if (budget != null && budget > 0) {
+                                    val progress = (monthlySpent / budget).toFloat().coerceIn(0f, 1f)
+                                    val overBudget = monthlySpent > budget
                                     val color = if (overBudget) MaterialTheme.colorScheme.error
                                                 else if (progress > 0.8f) MaterialTheme.colorScheme.tertiary
                                                 else MaterialTheme.colorScheme.primary
-                                    Spacer(Modifier.height(4.dp))
                                     LinearProgressIndicator(
                                         progress = { progress },
                                         modifier = Modifier.fillMaxWidth().height(8.dp),
@@ -177,9 +237,9 @@ fun BucketDetailScreen(
                                     )
                                     Text(
                                         text = if (overBudget)
-                                            "Over budget by ${formatCurrency((balance - budget).toString())}"
+                                            "Over budget by ${formatCurrency((monthlySpent - budget).toString())}"
                                         else
-                                            "${formatCurrency((budget - balance).toString())} remaining",
+                                            "${formatCurrency((budget - monthlySpent).toString())} remaining this month",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (overBudget) MaterialTheme.colorScheme.error
                                                 else MaterialTheme.colorScheme.onSurfaceVariant
@@ -191,59 +251,64 @@ fun BucketDetailScreen(
                 }
             }
 
-            // Transactions section
+            // Add New button
             item {
-                Text(
-                    "Transactions",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                Button(
+                    onClick = onAddTransactionClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                ) {
+                    Text("Add New")
+                }
             }
-            if (transactions.isEmpty()) {
+
+            // Transactions
+            if (filteredTransactions.isEmpty()) {
                 item {
                     Text(
-                        "No transactions yet.",
+                        "No transactions for this period.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }
             } else {
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Date", fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.9f),
-                            style = MaterialTheme.typography.bodySmall)
-                        Text("Description", fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f),
-                            style = MaterialTheme.typography.bodySmall)
-                        Text("Amount", fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.9f),
-                            style = MaterialTheme.typography.bodySmall)
+                        Text("Description", fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(2f), style = MaterialTheme.typography.bodySmall)
+                        Text("Amount", fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        Text("Type", fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        Text("Date", fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.width(40.dp))
                     }
                     HorizontalDivider()
                 }
-                items(transactions.sortedByDescending { it.transaction_date }) { tx ->
+                items(filteredTransactions.sortedByDescending { it.transaction_date }) { tx ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(tx.transaction_date ?: "—", modifier = Modifier.weight(0.9f),
-                            style = MaterialTheme.typography.bodySmall)
                         Text(tx.description ?: "—", modifier = Modifier.weight(2f),
                             style = MaterialTheme.typography.bodySmall)
+                        Text(formatCurrency(tx.amount), modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall)
                         Text(
-                            formatCurrency(tx.amount),
-                            modifier = Modifier.weight(0.9f),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (tx.type == "credit") MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurface
+                            tx.type?.replaceFirstChar { it.uppercase() } ?: "—",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall
                         )
+                        Text(tx.transaction_date ?: "—", modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall)
                         IconButton(
                             onClick = { transactionToDelete = tx },
                             modifier = Modifier.size(40.dp)
@@ -257,29 +322,18 @@ fun BucketDetailScreen(
                 }
             }
 
-            // Scheduled Expenses section
-            item {
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    "Scheduled Expenses",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-            if (scheduledExpenses.isEmpty()) {
+            // Scheduled Expenses
+            if (bucketScheduledExpenses.isNotEmpty()) {
                 item {
+                    Spacer(Modifier.height(16.dp))
                     Text(
-                        "No scheduled expenses.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "Scheduled Expenses",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
-                }
-            } else {
-                item {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
                     ) {
                         Text("Description", fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f),
                             style = MaterialTheme.typography.bodySmall)
@@ -290,22 +344,13 @@ fun BucketDetailScreen(
                     }
                     HorizontalDivider()
                 }
-                items(scheduledExpenses) { se ->
+                items(bucketScheduledExpenses) { se ->
                     ScheduledExpenseRow(se)
                 }
             }
 
-            item { Spacer(Modifier.height(80.dp)) }
+            item { Spacer(Modifier.height(32.dp)) }
         }
-    }
-}
-
-@Composable
-private fun LabeledValue(label: String, value: String) {
-    Column {
-        Text(label, style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -315,7 +360,6 @@ private fun ScheduledExpenseRow(se: RemoteScheduledExpense) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(se.description ?: "—", modifier = Modifier.weight(2f),

@@ -17,11 +17,13 @@ class UserPreferencesRepository(private val context: Context) {
         val USER_NAME = stringPreferencesKey("user_name")
         val CURRENCY_SYMBOL = stringPreferencesKey("currency_symbol")
         val TEMPERATURE_UNIT = stringPreferencesKey("temperature_unit")
+        val LAST_SECTION = stringPreferencesKey("last_section")
     }
 
     val userName: Flow<String> = context.dataStore.data.map { it[USER_NAME] ?: "User" }
     val currencySymbol: Flow<String> = context.dataStore.data.map { it[CURRENCY_SYMBOL] ?: "$" }
     val temperatureUnit: Flow<String> = context.dataStore.data.map { it[TEMPERATURE_UNIT] ?: "fahrenheit" }
+    val lastSection: Flow<String?> = context.dataStore.data.map { it[LAST_SECTION] }
 
     suspend fun updateUserName(name: String) {
         context.dataStore.edit { it[USER_NAME] = name }
@@ -33,5 +35,9 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun updateTemperatureUnit(unit: String) {
         context.dataStore.edit { it[TEMPERATURE_UNIT] = unit }
+    }
+
+    suspend fun saveLastSection(route: String) {
+        context.dataStore.edit { it[LAST_SECTION] = route }
     }
 }
