@@ -14,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -28,6 +27,7 @@ import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetRemoteViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetRemoteViewModelFactory
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarMaintenanceViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarMaintenanceViewModelFactory
+import coil.compose.AsyncImage
 import com.jon_is_awesome.hfg_portal_app.ui.navigation.NavGraph
 import com.jon_is_awesome.hfg_portal_app.ui.navigation.Screen
 import com.jon_is_awesome.hfg_portal_app.ui.theme.Hfg_portal_appTheme
@@ -82,6 +82,12 @@ fun MainScreen(authViewModel: AuthViewModel) {
     val userPrefs = app.userPreferencesRepository
     val userName by userPrefs.userName.collectAsState(initial = "User")
 
+    LaunchedEffect(Unit) {
+        app.remoteDataSource.loggedInUsername.collect { name ->
+            if (!name.isNullOrBlank()) userPrefs.updateUserName(name)
+        }
+    }
+
     val budgetVm: BudgetRemoteViewModel = viewModel(
         factory = BudgetRemoteViewModelFactory(app, app.remoteDataSource)
     )
@@ -89,7 +95,6 @@ fun MainScreen(authViewModel: AuthViewModel) {
         factory = CarMaintenanceViewModelFactory(app, app.remoteDataSource)
     )
 
-    var isAdminMode by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     val infiniteTransition = rememberInfiniteTransition(label = "refresh")
     val refreshAngle by infiniteTransition.animateFloat(
@@ -133,20 +138,11 @@ fun MainScreen(authViewModel: AuthViewModel) {
                             .height(150.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "ROOK",
-                                style = MaterialTheme.typography.displaySmall,
-                                fontWeight = FontWeight.Black,
-                                color = Color.White
-                            )
-                            Icon(
-                                imageVector = Icons.Rounded.Pets, 
-                                contentDescription = null,
-                                modifier = Modifier.size(60.dp),
-                                tint = Color(0xFFD32F2F)
-                            )
-                        }
+                        AsyncImage(
+                            model = "file:///android_asset/rook_logo.svg",
+                            contentDescription = "Rook Logo",
+                            modifier = Modifier.size(120.dp)
+                        )
                     }
 
                     HorizontalDivider(color = Color.Gray.copy(alpha = 0.5f))
@@ -161,27 +157,11 @@ fun MainScreen(authViewModel: AuthViewModel) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Person, contentDescription = null, tint = Color.LightGray)
                             Spacer(Modifier.width(16.dp))
-                            Text(userName, style = MaterialTheme.typography.bodyLarge, color = Color.White)
+                            Text(userName.replaceFirstChar(Char::uppercase), style = MaterialTheme.typography.bodyLarge, color = Color.White)
                         }
                         IconButton(onClick = { authViewModel.logout() }) {
                             Icon(Icons.Rounded.Logout, contentDescription = "Logout", tint = Color.LightGray)
                         }
-                    }
-
-                    HorizontalDivider(color = Color.Gray.copy(alpha = 0.5f))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = isAdminMode,
-                            onCheckedChange = { isAdminMode = it },
-                            colors = CheckboxDefaults.colors(uncheckedColor = Color.White)
-                        )
-                        Text("Admin Mode", style = MaterialTheme.typography.bodyMedium, color = Color.White)
                     }
 
                     HorizontalDivider(color = Color.Gray.copy(alpha = 0.5f))

@@ -88,7 +88,7 @@ class CarMaintenanceViewModel(
         serviceDate: String,
         mileage: Int,
         name: String,
-        maintenanceItemId: Int,
+        maintenanceItemId: Int?,
         namedItem: String,
         notes: String,
         onResult: (Boolean) -> Unit

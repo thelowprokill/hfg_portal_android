@@ -177,7 +177,7 @@ fun AddServiceHistoryScreen(
                     val isCustom = itemId == CUSTOM_ITEM_ID
                     val name = if (isCustom) namedItem
                                else maintenanceItems.find { it.id == itemId }?.name ?: ""
-                    val maintenanceId = if (isCustom) 0 else itemId
+                    val maintenanceId = if (isCustom) null else itemId
                     val namedItemValue = if (isCustom) "true" else ""
                     val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
                         timeZone = TimeZone.getTimeZone("UTC")

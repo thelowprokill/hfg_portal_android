@@ -148,10 +148,14 @@ fun ServiceHistoryList(
                     Text("Service", fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
                     Text("Date", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                     Text("Miles", fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.8f))
+                    Text("Next", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 }
                 HorizontalDivider()
             }
             items(history) { entry ->
+                val nextService = entry.next_service?.let {
+                    if (it.toString() == "null") "-" else it.toString().trim('"')
+                } ?: "-"
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -163,6 +167,7 @@ fun ServiceHistoryList(
                     Text(entry.item ?: "Unknown", modifier = Modifier.weight(2f))
                     Text(entry.service_date ?: "-", modifier = Modifier.weight(1f))
                     Text(entry.mileage?.toString() ?: "-", modifier = Modifier.weight(0.8f))
+                    Text(nextService, modifier = Modifier.weight(1f))
                 }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp), thickness = 0.5.dp)
             }

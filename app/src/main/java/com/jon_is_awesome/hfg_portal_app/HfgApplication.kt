@@ -1,6 +1,9 @@
 package com.jon_is_awesome.hfg_portal_app
 
 import android.app.Application
+import coil.Coil
+import coil.ImageLoader
+import coil.decode.SvgDecoder
 import com.jon_is_awesome.hfg_portal_app.data.local.AppDatabase
 import com.jon_is_awesome.hfg_portal_app.data.local.UserPreferencesRepository
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteDataSource
@@ -15,6 +18,15 @@ class HfgApplication : Application() {
     val repository by lazy { AppRepository(database.appDao()) }
     val userPreferencesRepository by lazy { UserPreferencesRepository(this) }
     val remoteDataSource by lazy { RemoteDataSource(this) }
+
+    override fun onCreate() {
+        super.onCreate()
+        Coil.setImageLoader(
+            ImageLoader.Builder(this)
+                .components { add(SvgDecoder.Factory()) }
+                .build()
+        )
+    }
 
     private val retrofit by lazy {
         Retrofit.Builder()

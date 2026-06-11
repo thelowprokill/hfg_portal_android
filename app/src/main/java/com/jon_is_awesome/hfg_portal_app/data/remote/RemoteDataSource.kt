@@ -43,6 +43,7 @@ class RemoteDataSource(private val context: Context) {
     private val _isLoggedIn = MutableStateFlow<Boolean?>(null)
     private val _token = MutableStateFlow<String?>(null)
     private val _loginError = MutableSharedFlow<String>()
+    private val _loggedInUsername = MutableStateFlow<String?>(null)
 
     val cars: StateFlow<List<RemoteCar>> = _cars
     val serviceHistory: StateFlow<List<RemoteServiceHistory>> = _serviceHistory
@@ -54,6 +55,7 @@ class RemoteDataSource(private val context: Context) {
     val scheduledExpenses: StateFlow<List<RemoteScheduledExpense>> = _scheduledExpenses
     val isLoggedIn: StateFlow<Boolean?> = _isLoggedIn
     val loginError = _loginError.asSharedFlow()
+    val loggedInUsername: StateFlow<String?> = _loggedInUsername
 
     private val masterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -140,6 +142,7 @@ class RemoteDataSource(private val context: Context) {
                         putString("password", cleanPassword)
                         apply()
                     }
+                    _loggedInUsername.value = response.username
                     initClient(token)
                     _isLoggedIn.value = true
                     fetchCars()
@@ -238,7 +241,7 @@ class RemoteDataSource(private val context: Context) {
         serviceDate: String,
         mileage: Int,
         name: String,
-        maintenanceItemId: Int,
+        maintenanceItemId: Int?,
         namedItem: String,
         notes: String
     ): Boolean {
@@ -252,7 +255,7 @@ class RemoteDataSource(private val context: Context) {
                     parameter("service_date", serviceDate)
                     parameter("mileage", mileage)
                     parameter("name", name)
-                    parameter("item_id", maintenanceItemId)
+                    if (maintenanceItemId != null) parameter("item_id", maintenanceItemId)
                     parameter("named_item", namedItem)
                     parameter("notes", notes)
                 }.body()
@@ -482,6 +485,7 @@ class RemoteDataSource(private val context: Context) {
         sharedPreferences.edit().clear().apply()
         _token.value = null
         _isLoggedIn.value = false
+        _loggedInUsername.value = null
         _cars.value = emptyList()
         _maintenanceImages.value = emptyList()
         _buckets.value = emptyList()
