@@ -440,7 +440,7 @@ class RemoteDataSource(private val context: Context) {
         val baseURL = BuildConfig.BASE_URL
         return client?.let {
             try {
-                val response: GenericResponse = it.put("${baseURL}/apis/call") {
+                val httpResponse = it.put("${baseURL}/apis/call") {
                     parameter("scope", "budget:transactions")
                     parameter("route", "transaction")
                     parameter("bucket_id", bucketId)
@@ -448,7 +448,9 @@ class RemoteDataSource(private val context: Context) {
                     parameter("description", description)
                     parameter("transaction_date", transactionDate)
                     parameter("type", type)
-                }.body()
+                }
+                Log.d(TAG, "addTransaction URL: ${httpResponse.request.url}")
+                val response: GenericResponse = httpResponse.body()
                 Log.d(TAG, "addTransaction response: ${response.response}")
                 response.response == "ok"
             } catch (e: Exception) {

@@ -63,6 +63,20 @@ fun BucketDetailScreen(
     // Monthly spend — sum of all transaction amounts for the selected month
     val monthlySpent = filteredTransactions.mapNotNull { it.amount?.toDoubleOrNull() }.sum()
 
+    // Cumulative balance up to end of the selected month (expenses negative, deposits positive)
+    val balanceAtMonthEnd = transactions.filter { tx ->
+        tx.transaction_date?.let { d ->
+            val parts = d.split("-")
+            if (parts.size < 2) return@filter false
+            val txYear = parts[0].toIntOrNull() ?: return@filter false
+            val txMonth = (parts[1].toIntOrNull() ?: return@filter false) - 1
+            txYear < selectedYear || (txYear == selectedYear && txMonth <= selectedMonth)
+        } ?: false
+    }.mapNotNull { tx ->
+        val amount = tx.amount?.toDoubleOrNull() ?: return@mapNotNull null
+        if (tx.type == "expense") -amount else amount
+    }.sum()
+
     var transactionToDelete by remember { mutableStateOf<RemoteTransaction?>(null) }
     var showDeleteBucketDialog by remember { mutableStateOf(false) }
 
@@ -171,8 +185,8 @@ fun BucketDetailScreen(
                             }
 
                             if (isSinkingFund) {
-                                val saved = b.balance?.toDoubleOrNull() ?: 0.0
                                 val goal = b.max_balance?.toDoubleOrNull()
+                                val goalReached = goal != null && balanceAtMonthEnd >= goal
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
@@ -180,13 +194,12 @@ fun BucketDetailScreen(
                                     Text("Saved", style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(
-                                        "${formatCurrency(b.balance)} / ${formatCurrency(b.max_balance)}",
+                                        "${formatCurrency(balanceAtMonthEnd.toString())} / ${formatCurrency(b.max_balance)}",
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
                                 if (goal != null && goal > 0) {
-                                    val progress = (saved / goal).toFloat().coerceIn(0f, 1f)
-                                    val goalReached = saved >= goal
+                                    val progress = (balanceAtMonthEnd / goal).toFloat().coerceIn(0f, 1f)
                                     val color = if (goalReached) MaterialTheme.colorScheme.primary
                                                 else MaterialTheme.colorScheme.secondary
                                     LinearProgressIndicator(
@@ -197,17 +210,35 @@ fun BucketDetailScreen(
                                     )
                                     Text(
                                         text = if (goalReached) "Goal reached!"
-                                               else "${formatCurrency((goal - saved).toString())} remaining toward goal",
+                                               else "${formatCurrency((goal - balanceAtMonthEnd).toString())} remaining toward goal",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (goalReached) MaterialTheme.colorScheme.primary
                                                 else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                if (!b.monthly_contribution.isNullOrBlank()) {
-                                    Text(
-                                        "Monthly contribution: ${formatCurrency(b.monthly_contribution)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                val contribution = b.monthly_contribution?.toDoubleOrNull()
+                                if (contribution != null && contribution > 0) {
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), thickness = 0.5.dp)
+                                    val monthFull = monthlySpent >= contribution
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("This month", style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(
+                                            "${formatCurrency(monthlySpent.toString())} / ${formatCurrency(b.monthly_contribution)}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (monthFull) MaterialTheme.colorScheme.secondary
+                                                    else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    val monthProgress = (monthlySpent / contribution).toFloat().coerceIn(0f, 1f)
+                                    LinearProgressIndicator(
+                                        progress = { monthProgress },
+                                        modifier = Modifier.fillMaxWidth().height(8.dp),
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        trackColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
                                     )
                                 }
                             } else {
@@ -303,7 +334,7 @@ fun BucketDetailScreen(
                         Text(formatCurrency(tx.amount), modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodySmall)
                         Text(
-                            tx.type?.replaceFirstChar { it.uppercase() } ?: "—",
+                            tx.type?.split("_")?.joinToString(" ") { it.replaceFirstChar(Char::uppercase) } ?: "—",
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodySmall
                         )

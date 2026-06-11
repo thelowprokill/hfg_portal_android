@@ -16,7 +16,10 @@ import com.jon_is_awesome.hfg_portal_app.ui.carlogs.formatDate
 import java.text.SimpleDateFormat
 import java.util.*
 
-private val TRANSACTION_TYPES = listOf("debit", "credit")
+private val TRANSACTION_TYPES = listOf("expense", "contribution", "sinking_fund_deposit")
+
+private fun formatTransactionType(type: String): String =
+    type.split("_").joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,7 +36,7 @@ fun AddTransactionScreen(
     var amount by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var date by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    var type by remember(isSinkingFund) { mutableStateOf(if (isSinkingFund) "credit" else "debit") }
+    var type by remember(isSinkingFund) { mutableStateOf(if (isSinkingFund) "sinking_fund_deposit" else "expense") }
     var typeDropdownExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
@@ -86,7 +89,7 @@ fun AddTransactionScreen(
                 onExpandedChange = { typeDropdownExpanded = it }
             ) {
                 OutlinedTextField(
-                    value = type.replaceFirstChar { it.uppercase() },
+                    value = formatTransactionType(type),
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Type") },

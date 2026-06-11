@@ -56,6 +56,26 @@ fun BudgetListScreen(
             .mapValues { (_, txs) -> txs.mapNotNull { it.amount?.toDoubleOrNull() }.sum() }
     }
 
+    val balanceAtMonthEndByBucket = remember(allTransactions, selectedMonth, selectedYear) {
+        allTransactions
+            .filter { tx ->
+                tx.transaction_date?.let { d ->
+                    val parts = d.split("-")
+                    if (parts.size < 2) return@filter false
+                    val txYear = parts[0].toIntOrNull() ?: return@filter false
+                    val txMonth = (parts[1].toIntOrNull() ?: return@filter false) - 1
+                    txYear < selectedYear || (txYear == selectedYear && txMonth <= selectedMonth)
+                } ?: false
+            }
+            .groupBy { it.bucket_id ?: -1 }
+            .mapValues { (_, txs) ->
+                txs.mapNotNull { tx ->
+                    val amount = tx.amount?.toDoubleOrNull() ?: return@mapNotNull null
+                    if (tx.type == "expense") -amount else amount
+                }.sum()
+            }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -120,10 +140,12 @@ fun BudgetListScreen(
                             items(buckets) { bucket ->
                                 val isSinkingFund = bucket.monthly_budget.toDoubleOrNullSafe() == null
                                 val monthlySpent = monthlySpentByBucket[bucket.id] ?: 0.0
+                                val balanceAtMonthEnd = balanceAtMonthEndByBucket[bucket.id] ?: 0.0
                                 BucketCard(
                                     bucket = bucket,
                                     isSinkingFund = isSinkingFund,
                                     monthlySpent = monthlySpent,
+                                    balanceAtMonthEnd = balanceAtMonthEnd,
                                     onClick = { onBucketClick(bucket) }
                                 )
                             }
@@ -146,6 +168,7 @@ private fun BucketCard(
     bucket: RemoteBucket,
     isSinkingFund: Boolean,
     monthlySpent: Double,
+    balanceAtMonthEnd: Double,
     onClick: () -> Unit
 ) {
     Card(
@@ -179,9 +202,8 @@ private fun BucketCard(
             }
 
             if (isSinkingFund) {
-                val saved = bucket.balance?.toDoubleOrNull() ?: 0.0
                 val goal = bucket.max_balance?.toDoubleOrNull()
-                val goalReached = goal != null && saved >= goal
+                val goalReached = goal != null && balanceAtMonthEnd >= goal
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -193,7 +215,7 @@ private fun BucketCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "${formatCurrency(bucket.balance)} / ${formatCurrency(bucket.max_balance)}",
+                        "${formatCurrency(balanceAtMonthEnd.toString())} / ${formatCurrency(bucket.max_balance)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (goalReached) MaterialTheme.colorScheme.secondary
                                 else MaterialTheme.colorScheme.onSurface
@@ -201,7 +223,7 @@ private fun BucketCard(
                 }
 
                 if (goal != null && goal > 0) {
-                    val progress = (saved / goal).toFloat().coerceIn(0f, 1f)
+                    val progress = (balanceAtMonthEnd / goal).toFloat().coerceIn(0f, 1f)
                     LinearProgressIndicator(
                         progress = { progress },
                         modifier = Modifier.fillMaxWidth().height(6.dp),
@@ -210,7 +232,7 @@ private fun BucketCard(
                     )
                     Text(
                         if (goalReached) "Goal reached!"
-                        else "${formatCurrency((goal - saved).toString())} remaining to fill",
+                        else "${formatCurrency((goal - balanceAtMonthEnd).toString())} remaining to fill",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (goalReached) MaterialTheme.colorScheme.secondary
                                 else MaterialTheme.colorScheme.onSurfaceVariant
