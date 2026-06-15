@@ -48,13 +48,6 @@ fun CarLogListScreen(
                 }
             )
         },
-        floatingActionButton = {
-            if (selectedCar != null) {
-                FloatingActionButton(onClick = onAddLogClick) {
-                    Icon(Icons.Rounded.Add, contentDescription = "Add Service")
-                }
-            }
-        }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (isLoggedIn == true) {

@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,7 +22,6 @@ import java.util.*
 @Composable
 fun BudgetListScreen(
     viewModel: BudgetRemoteViewModel,
-    onAddBucketClick: () -> Unit,
     onBucketClick: (RemoteBucket) -> Unit
 ) {
     val buckets by viewModel.buckets.collectAsState()
@@ -81,13 +79,6 @@ fun BudgetListScreen(
             TopAppBar(
                 title = { Text("Budget") },
                 windowInsets = WindowInsets(0),
-                actions = {
-                    if (isLoggedIn == true) {
-                        IconButton(onClick = onAddBucketClick) {
-                            Icon(Icons.Rounded.Add, contentDescription = "Add Bucket")
-                        }
-                    }
-                }
             )
         }
     ) { padding ->
@@ -121,6 +112,76 @@ fun BudgetListScreen(
                                     else selectedMonth++
                                 }) {
                                     Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "Next month")
+                                }
+                            }
+                        }
+
+                        item {
+                            val regularBuckets = buckets.filter { it.monthly_budget.toDoubleOrNullSafe() != null }
+                            val totalBudget = regularBuckets.mapNotNull { it.monthly_budget?.toDoubleOrNull() }.sum()
+                            val totalSpent = regularBuckets.sumOf { monthlySpentByBucket[it.id] ?: 0.0 }
+                            val sinkingBuckets = buckets.filter { it.monthly_budget.toDoubleOrNullSafe() == null }
+                            val totalSaved = sinkingBuckets.sumOf { balanceAtMonthEndByBucket[it.id] ?: 0.0 }
+                            val totalGoal = sinkingBuckets.mapNotNull { it.max_balance?.toDoubleOrNull() }.sum()
+                            val overBudget = totalBudget > 0 && totalSpent > totalBudget
+
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text("Monthly Overview", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                    if (totalBudget > 0) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Total spent", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(
+                                                "${formatCurrency(totalSpent.toString())} / ${formatCurrency(totalBudget.toString())}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = if (overBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                        val progress = (totalSpent / totalBudget).toFloat().coerceIn(0f, 1f)
+                                        val barColor = when {
+                                            overBudget -> MaterialTheme.colorScheme.error
+                                            progress > 0.8f -> MaterialTheme.colorScheme.tertiary
+                                            else -> MaterialTheme.colorScheme.primary
+                                        }
+                                        LinearProgressIndicator(
+                                            progress = { progress },
+                                            modifier = Modifier.fillMaxWidth().height(6.dp),
+                                            color = barColor,
+                                            trackColor = barColor.copy(alpha = 0.2f)
+                                        )
+                                        Text(
+                                            if (overBudget) "Over budget by ${formatCurrency((totalSpent - totalBudget).toString())}"
+                                            else "${formatCurrency((totalBudget - totalSpent).toString())} remaining",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (overBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (totalGoal > 0) {
+                                        HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp), thickness = 0.5.dp)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Sinking funds", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(
+                                                "${formatCurrency(totalSaved.toString())} / ${formatCurrency(totalGoal.toString())}",
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                        val sinkProgress = (totalSaved / totalGoal).toFloat().coerceIn(0f, 1f)
+                                        LinearProgressIndicator(
+                                            progress = { sinkProgress },
+                                            modifier = Modifier.fillMaxWidth().height(6.dp),
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            trackColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
+                                        )
+                                    }
                                 }
                             }
                         }

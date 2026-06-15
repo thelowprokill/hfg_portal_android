@@ -78,7 +78,6 @@ fun BucketDetailScreen(
     }.sum()
 
     var transactionToDelete by remember { mutableStateOf<RemoteTransaction?>(null) }
-    var showDeleteBucketDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(bucketId) {
         viewModel.fetchBucketDetail(bucketId)
@@ -102,23 +101,6 @@ fun BucketDetailScreen(
         )
     }
 
-    if (showDeleteBucketDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteBucketDialog = false },
-            title = { Text("Delete Bucket") },
-            text = { Text("Delete \"${bucket?.name}\"? This will also delete all its transactions and scheduled expenses.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteBucketDialog = false
-                    viewModel.deleteBucket(bucketId) { onNavigateBack() }
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteBucketDialog = false }) { Text("Cancel") }
-            }
-        )
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -129,12 +111,6 @@ fun BucketDetailScreen(
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                     }
                 },
-                actions = {
-                    IconButton(onClick = { showDeleteBucketDialog = true }) {
-                        Icon(Icons.Rounded.Delete, contentDescription = "Delete Bucket",
-                            tint = MaterialTheme.colorScheme.error)
-                    }
-                }
             )
         }
     ) { padding ->

@@ -138,7 +138,6 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         composable(Screen.Budget.route) {
             BudgetListScreen(
                 viewModel = budgetRemoteViewModel,
-                onAddBucketClick = { navController.navigate("add_bucket") },
                 onBucketClick = { bucket -> navController.navigate("bucket_detail/${bucket.id}") }
             )
         }

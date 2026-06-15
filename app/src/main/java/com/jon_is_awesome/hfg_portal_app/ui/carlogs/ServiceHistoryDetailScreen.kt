@@ -130,11 +130,6 @@ fun ServiceHistoryDetailScreen(
                 }
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { imagePickerLauncher.launch("image/*") }) {
-                Icon(Icons.Rounded.Add, contentDescription = "Add Image")
-            }
-        }
     ) { padding ->
         Column(
             modifier = Modifier
