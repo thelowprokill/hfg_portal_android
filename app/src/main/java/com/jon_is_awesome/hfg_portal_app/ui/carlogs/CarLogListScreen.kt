@@ -48,6 +48,13 @@ fun CarLogListScreen(
                 }
             )
         },
+        floatingActionButton = {
+            if (selectedCar != null) {
+                FloatingActionButton(onClick = onAddLogClick) {
+                    Icon(Icons.Rounded.Add, contentDescription = "Add Service History")
+                }
+            }
+        }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (isLoggedIn == true) {
