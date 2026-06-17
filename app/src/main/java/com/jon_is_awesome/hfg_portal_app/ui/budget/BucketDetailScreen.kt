@@ -24,6 +24,8 @@ import java.util.*
 fun BucketDetailScreen(
     bucketId: Int,
     viewModel: BudgetRemoteViewModel,
+    canEdit: Boolean,
+    canAdmin: Boolean,
     onNavigateBack: () -> Unit,
     onAddTransactionClick: () -> Unit
 ) {
@@ -259,14 +261,16 @@ fun BucketDetailScreen(
             }
 
             // Add New button
-            item {
-                Button(
-                    onClick = onAddTransactionClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp)
-                ) {
-                    Text("Add New")
+            if (canEdit) {
+                item {
+                    Button(
+                        onClick = onAddTransactionClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                    ) {
+                        Text("Add New")
+                    }
                 }
             }
 
@@ -316,13 +320,17 @@ fun BucketDetailScreen(
                         )
                         Text(tx.transaction_date ?: "—", modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodySmall)
-                        IconButton(
-                            onClick = { transactionToDelete = tx },
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(Icons.Rounded.Delete, contentDescription = "Delete",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(18.dp))
+                        if (canAdmin) {
+                            IconButton(
+                                onClick = { transactionToDelete = tx },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(Icons.Rounded.Delete, contentDescription = "Delete",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp))
+                            }
+                        } else {
+                            Spacer(Modifier.width(40.dp))
                         }
                     }
                     HorizontalDivider(thickness = 0.5.dp)

@@ -37,6 +37,7 @@ import kotlinx.coroutines.withContext
 fun ServiceHistoryDetailScreen(
     serviceHistoryId: Int,
     remoteViewModel: CarMaintenanceViewModel,
+    canEdit: Boolean,
     onNavigateBack: () -> Unit
 ) {
     val serviceHistory by remoteViewModel.serviceHistory.collectAsState()
@@ -131,10 +132,12 @@ fun ServiceHistoryDetailScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { if (!isUploading) imagePickerLauncher.launch("image/*") }
-            ) {
-                Icon(Icons.Rounded.Add, contentDescription = "Add Photo")
+            if (canEdit) {
+                FloatingActionButton(
+                    onClick = { if (!isUploading) imagePickerLauncher.launch("image/*") }
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = "Add Photo")
+                }
             }
         }
     ) { padding ->

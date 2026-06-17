@@ -104,21 +104,50 @@ fun MainScreen(authViewModel: AuthViewModel) {
         label = "refreshRotation"
     )
 
-    // On first launch, navigate directly to the last accessed section
-    LaunchedEffect(Unit) {
-        val lastSection = userPrefs.lastSection.first()
-        if (!lastSection.isNullOrBlank()) {
-            navController.navigate(lastSection) {
-                popUpTo(Screen.Dashboard.route) { inclusive = true }
-                launchSingleTop = true
+    val userRoles by carVm.userRoles.collectAsState()
+
+    fun hasAccess(route: String): Boolean = when (route) {
+        Screen.Budget.route -> userRoles.containsKey("Budget")
+        Screen.CarLogs.route -> userRoles.containsKey("Car Maintenance")
+        else -> true
+    }
+
+    val menuItems by remember {
+        derivedStateOf {
+            listOf(Screen.Budget, Screen.CarLogs).filter { screen ->
+                when (screen.route) {
+                    Screen.Budget.route -> userRoles.containsKey("Budget")
+                    Screen.CarLogs.route -> userRoles.containsKey("Car Maintenance")
+                    else -> true
+                }
             }
         }
     }
 
-    val menuItems = listOf(
-        Screen.Budget,
-        Screen.CarLogs
-    )
+    val isAnyAdmin by remember { derivedStateOf { userRoles.values.any { it == "Admin" } } }
+    var adminModeEnabled by remember { mutableStateOf(false) }
+
+    // On first launch, navigate directly to the last accessed section if still accessible;
+    // clear the saved section if access was revoked so future launches default to dashboard.
+    LaunchedEffect(Unit) {
+        val lastSection = userPrefs.lastSection.first()
+        if (!lastSection.isNullOrBlank()) {
+            // Read the current value directly — roles are always set before isLoggedIn = true
+            val accessible = when (lastSection) {
+                Screen.Budget.route -> carVm.userRoles.value.containsKey("Budget")
+                Screen.CarLogs.route -> carVm.userRoles.value.containsKey("Car Maintenance")
+                else -> true
+            }
+            if (accessible) {
+                navController.navigate(lastSection) {
+                    popUpTo(Screen.Dashboard.route) { inclusive = true }
+                    launchSingleTop = true
+                }
+            } else {
+                userPrefs.saveLastSection("")
+            }
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -202,9 +231,39 @@ fun MainScreen(authViewModel: AuthViewModel) {
                             modifier = Modifier.padding(vertical = 4.dp)
                         )
                     }
-                    
+
+                    if (isAnyAdmin) {
+                        Spacer(Modifier.height(8.dp))
+                        HorizontalDivider(color = Color.Gray.copy(alpha = 0.5f))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Rounded.Security,
+                                    contentDescription = null,
+                                    tint = if (adminModeEnabled) MaterialTheme.colorScheme.primary else Color.LightGray
+                                )
+                                Spacer(Modifier.width(16.dp))
+                                Text(
+                                    "Admin Mode",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = if (adminModeEnabled) Color.White else Color.LightGray
+                                )
+                            }
+                            Switch(
+                                checked = adminModeEnabled,
+                                onCheckedChange = { adminModeEnabled = it }
+                            )
+                        }
+                    }
+
                     Spacer(Modifier.weight(1f))
-                    
+
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Rounded.Settings, contentDescription = null) },
                         label = { Text("Settings") },
@@ -303,6 +362,7 @@ fun MainScreen(authViewModel: AuthViewModel) {
         ) { innerPadding ->
             NavGraph(
                 navController = navController,
+                adminModeEnabled = adminModeEnabled,
                 modifier = Modifier.padding(innerPadding)
             )
         }

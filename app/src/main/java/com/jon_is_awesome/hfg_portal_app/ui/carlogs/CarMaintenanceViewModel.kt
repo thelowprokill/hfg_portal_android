@@ -29,6 +29,7 @@ class CarMaintenanceViewModel(
     val maintenanceImages: StateFlow<List<RemoteMaintenanceImage>> = remoteDataSource.maintenanceImages
     val isLoggedIn: StateFlow<Boolean?> = remoteDataSource.isLoggedIn
     val loginError = remoteDataSource.loginError
+    val userRoles: StateFlow<Map<String, String>> = remoteDataSource.userRoles
 
     private val _selectedCar = MutableStateFlow<RemoteCar?>(null)
     val selectedCar: StateFlow<RemoteCar?> = _selectedCar

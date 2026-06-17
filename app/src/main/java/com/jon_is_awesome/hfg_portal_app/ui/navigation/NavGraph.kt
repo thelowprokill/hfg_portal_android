@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -40,7 +41,7 @@ import com.jon_is_awesome.hfg_portal_app.ui.settings.SettingsViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.settings.SettingsViewModelFactory
 
 @Composable
-fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
+fun NavGraph(navController: NavHostController, adminModeEnabled: Boolean, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val app = context.applicationContext as HfgApplication
     val repository = app.repository
@@ -82,14 +83,28 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             }
         }
         composable(Screen.CarLogs.route) {
-            CarLogListScreen(
-                viewModel = carLogViewModel,
-                remoteViewModel = carMaintenanceViewModel,
-                onAddLogClick = { navController.navigate("add_service_history") },
-                onServiceHistoryClick = { history ->
-                    navController.navigate("service_history_detail/${history.id}")
+            val userRoles by carMaintenanceViewModel.userRoles.collectAsState()
+            val hasAccess = userRoles.isEmpty() || userRoles.containsKey("Car Maintenance")
+            LaunchedEffect(userRoles) {
+                if (userRoles.isNotEmpty() && !userRoles.containsKey("Car Maintenance")) {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Dashboard.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
                 }
-            )
+            }
+            if (hasAccess) {
+                val carRole = userRoles["Car Maintenance"]
+                CarLogListScreen(
+                    viewModel = carLogViewModel,
+                    remoteViewModel = carMaintenanceViewModel,
+                    canEdit = carRole == "Edit" || carRole == "Admin",
+                    onAddLogClick = { navController.navigate("add_service_history") },
+                    onServiceHistoryClick = { history ->
+                        navController.navigate("service_history_detail/${history.id}")
+                    }
+                )
+            }
         }
         composable("add_service_history") {
             AddServiceHistoryScreen(
@@ -103,9 +118,12 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         ) { backStackEntry ->
             val serviceHistoryId = backStackEntry.arguments?.getInt("serviceHistoryId")
                 ?: return@composable
+            val userRoles by carMaintenanceViewModel.userRoles.collectAsState()
+            val carRole = userRoles["Car Maintenance"]
             ServiceHistoryDetailScreen(
                 serviceHistoryId = serviceHistoryId,
                 remoteViewModel = carMaintenanceViewModel,
+                canEdit = carRole == "Edit" || carRole == "Admin",
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -136,10 +154,22 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             )
         }
         composable(Screen.Budget.route) {
-            BudgetListScreen(
-                viewModel = budgetRemoteViewModel,
-                onBucketClick = { bucket -> navController.navigate("bucket_detail/${bucket.id}") }
-            )
+            val userRoles by budgetRemoteViewModel.userRoles.collectAsState()
+            val hasAccess = userRoles.isEmpty() || userRoles.containsKey("Budget")
+            LaunchedEffect(userRoles) {
+                if (userRoles.isNotEmpty() && !userRoles.containsKey("Budget")) {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Dashboard.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                }
+            }
+            if (hasAccess) {
+                BudgetListScreen(
+                    viewModel = budgetRemoteViewModel,
+                    onBucketClick = { bucket -> navController.navigate("bucket_detail/${bucket.id}") }
+                )
+            }
         }
         composable("add_bucket") {
             AddBudgetScreen(
@@ -152,9 +182,13 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             arguments = listOf(navArgument("bucketId") { type = NavType.IntType })
         ) { backStackEntry ->
             val bucketId = backStackEntry.arguments?.getInt("bucketId") ?: return@composable
+            val userRoles by budgetRemoteViewModel.userRoles.collectAsState()
+            val budgetRole = userRoles["Budget"]
             BucketDetailScreen(
                 bucketId = bucketId,
                 viewModel = budgetRemoteViewModel,
+                canEdit = budgetRole == "Edit" || budgetRole == "Admin",
+                canAdmin = budgetRole == "Admin" && adminModeEnabled,
                 onNavigateBack = { navController.popBackStack() },
                 onAddTransactionClick = { navController.navigate("add_transaction/$bucketId") }
             )

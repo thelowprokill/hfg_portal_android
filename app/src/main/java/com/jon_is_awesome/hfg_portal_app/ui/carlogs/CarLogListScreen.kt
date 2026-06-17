@@ -24,6 +24,7 @@ import java.util.Locale
 fun CarLogListScreen(
     viewModel: CarLogViewModel,
     remoteViewModel: CarMaintenanceViewModel,
+    canEdit: Boolean,
     onAddLogClick: () -> Unit,
     onServiceHistoryClick: (RemoteServiceHistory) -> Unit
 ) {
@@ -49,7 +50,7 @@ fun CarLogListScreen(
             )
         },
         floatingActionButton = {
-            if (selectedCar != null) {
+            if (selectedCar != null && canEdit) {
                 FloatingActionButton(onClick = onAddLogClick) {
                     Icon(Icons.Rounded.Add, contentDescription = "Add Service History")
                 }

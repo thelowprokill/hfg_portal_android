@@ -44,6 +44,7 @@ class RemoteDataSource(private val context: Context) {
     private val _token = MutableStateFlow<String?>(null)
     private val _loginError = MutableSharedFlow<String>()
     private val _loggedInUsername = MutableStateFlow<String?>(null)
+    private val _userRoles = MutableStateFlow<Map<String, String>>(emptyMap())
 
     val cars: StateFlow<List<RemoteCar>> = _cars
     val serviceHistory: StateFlow<List<RemoteServiceHistory>> = _serviceHistory
@@ -56,6 +57,7 @@ class RemoteDataSource(private val context: Context) {
     val isLoggedIn: StateFlow<Boolean?> = _isLoggedIn
     val loginError = _loginError.asSharedFlow()
     val loggedInUsername: StateFlow<String?> = _loggedInUsername
+    val userRoles: StateFlow<Map<String, String>> = _userRoles
 
     private val masterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -143,6 +145,9 @@ class RemoteDataSource(private val context: Context) {
                         apply()
                     }
                     _loggedInUsername.value = response.username
+                    _userRoles.value = response.apps
+                        .filter { it.app != null && it.role != null }
+                        .associate { it.app!! to it.role!! }
                     initClient(token)
                     _isLoggedIn.value = true
                     fetchCars()
@@ -486,6 +491,7 @@ class RemoteDataSource(private val context: Context) {
         _token.value = null
         _isLoggedIn.value = false
         _loggedInUsername.value = null
+        _userRoles.value = emptyMap()
         _cars.value = emptyList()
         _maintenanceImages.value = emptyList()
         _buckets.value = emptyList()

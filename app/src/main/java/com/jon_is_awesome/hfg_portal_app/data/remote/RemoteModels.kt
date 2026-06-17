@@ -11,9 +11,16 @@ data class GenericResponse(
 )
 
 @Serializable
+data class AppRole(
+    val app: String? = null,
+    val role: String? = null
+)
+
+@Serializable
 data class AuthResponse(
     val jwt: String? = null,
-    val username: String? = null
+    val username: String? = null,
+    val apps: List<AppRole> = emptyList()
 )
 
 @Serializable

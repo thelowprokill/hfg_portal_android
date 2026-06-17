@@ -23,6 +23,7 @@ class BudgetRemoteViewModel(
     val allTransactions: StateFlow<List<RemoteTransaction>> = remoteDataSource.allTransactions
     val scheduledExpenses: StateFlow<List<RemoteScheduledExpense>> = remoteDataSource.scheduledExpenses
     val isLoggedIn: StateFlow<Boolean?> = remoteDataSource.isLoggedIn
+    val userRoles: StateFlow<Map<String, String>> = remoteDataSource.userRoles
 
     fun fetchBuckets() {
         viewModelScope.launch { remoteDataSource.fetchBuckets() }
