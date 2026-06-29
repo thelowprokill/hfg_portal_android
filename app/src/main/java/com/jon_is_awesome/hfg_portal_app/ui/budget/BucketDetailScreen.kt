@@ -62,8 +62,15 @@ fun BucketDetailScreen(
         } ?: false
     }
 
-    // Monthly spend — sum of all transaction amounts for the selected month
-    val monthlySpent = filteredTransactions.mapNotNull { it.amount?.toDoubleOrNull() }.sum()
+    // Monthly spend — expenses only (for regular budget buckets)
+    val monthlySpent = filteredTransactions
+        .filter { it.type == "expense" }
+        .mapNotNull { it.amount?.toDoubleOrNull() }.sum()
+
+    // Monthly deposits — contributions/sinking fund deposits only (for sinking fund buckets)
+    val monthlyDeposits = filteredTransactions
+        .filter { it.type == "sinking_fund_deposit" || it.type == "contribution" }
+        .mapNotNull { it.amount?.toDoubleOrNull() }.sum()
 
     // Cumulative balance up to end of the selected month (expenses negative, deposits positive)
     val balanceAtMonthEnd = transactions.filter { tx ->
@@ -197,21 +204,43 @@ fun BucketDetailScreen(
                                 val contribution = b.monthly_contribution?.toDoubleOrNull()
                                 if (contribution != null && contribution > 0) {
                                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), thickness = 0.5.dp)
-                                    val monthFull = monthlySpent >= contribution
+                                    val overSpent = monthlySpent > contribution
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text("This month", style = MaterialTheme.typography.labelSmall,
+                                        Text("Spent", style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Text(
                                             "${formatCurrency(monthlySpent.toString())} / ${formatCurrency(b.monthly_contribution)}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (overSpent) MaterialTheme.colorScheme.error
+                                                    else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    val spentProgress = (monthlySpent / contribution).toFloat().coerceIn(0f, 1f)
+                                    LinearProgressIndicator(
+                                        progress = { spentProgress },
+                                        modifier = Modifier.fillMaxWidth().height(8.dp),
+                                        color = if (overSpent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
+                                        trackColor = (if (overSpent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary).copy(alpha = 0.2f)
+                                    )
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), thickness = 0.5.dp)
+                                    val monthFull = monthlyDeposits >= contribution
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Contributed", style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(
+                                            "${formatCurrency(monthlyDeposits.toString())} / ${formatCurrency(b.monthly_contribution)}",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = if (monthFull) MaterialTheme.colorScheme.secondary
                                                     else MaterialTheme.colorScheme.onSurface
                                         )
                                     }
-                                    val monthProgress = (monthlySpent / contribution).toFloat().coerceIn(0f, 1f)
+                                    val monthProgress = (monthlyDeposits / contribution).toFloat().coerceIn(0f, 1f)
                                     LinearProgressIndicator(
                                         progress = { monthProgress },
                                         modifier = Modifier.fillMaxWidth().height(8.dp),

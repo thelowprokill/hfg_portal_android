@@ -40,16 +40,27 @@ fun BudgetListScreen(
         SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)
     }
 
-    val monthlySpentByBucket = remember(allTransactions, selectedMonth, selectedYear) {
-        allTransactions
-            .filter { tx ->
-                tx.transaction_date?.let { d ->
-                    val parts = d.split("-")
-                    parts.size >= 2
-                        && parts[0].toIntOrNull() == selectedYear
-                        && (parts[1].toIntOrNull()?.minus(1)) == selectedMonth
-                } ?: false
-            }
+    val thisMonthTransactions = remember(allTransactions, selectedMonth, selectedYear) {
+        allTransactions.filter { tx ->
+            tx.transaction_date?.let { d ->
+                val parts = d.split("-")
+                parts.size >= 2
+                    && parts[0].toIntOrNull() == selectedYear
+                    && (parts[1].toIntOrNull()?.minus(1)) == selectedMonth
+            } ?: false
+        }
+    }
+
+    val monthlySpentByBucket = remember(thisMonthTransactions) {
+        thisMonthTransactions
+            .filter { it.type == "expense" }
+            .groupBy { it.bucket_id ?: -1 }
+            .mapValues { (_, txs) -> txs.mapNotNull { it.amount?.toDoubleOrNull() }.sum() }
+    }
+
+    val monthlyDepositsByBucket = remember(thisMonthTransactions) {
+        thisMonthTransactions
+            .filter { it.type == "sinking_fund_deposit" || it.type == "contribution" }
             .groupBy { it.bucket_id ?: -1 }
             .mapValues { (_, txs) -> txs.mapNotNull { it.amount?.toDoubleOrNull() }.sum() }
     }
@@ -201,11 +212,13 @@ fun BudgetListScreen(
                             items(buckets) { bucket ->
                                 val isSinkingFund = bucket.monthly_budget.toDoubleOrNullSafe() == null
                                 val monthlySpent = monthlySpentByBucket[bucket.id] ?: 0.0
+                                val monthlyDeposits = monthlyDepositsByBucket[bucket.id] ?: 0.0
                                 val balanceAtMonthEnd = balanceAtMonthEndByBucket[bucket.id] ?: 0.0
                                 BucketCard(
                                     bucket = bucket,
                                     isSinkingFund = isSinkingFund,
                                     monthlySpent = monthlySpent,
+                                    monthlyDeposits = monthlyDeposits,
                                     balanceAtMonthEnd = balanceAtMonthEnd,
                                     onClick = { onBucketClick(bucket) }
                                 )
@@ -229,6 +242,7 @@ private fun BucketCard(
     bucket: RemoteBucket,
     isSinkingFund: Boolean,
     monthlySpent: Double,
+    monthlyDeposits: Double,
     balanceAtMonthEnd: Double,
     onClick: () -> Unit
 ) {
@@ -303,24 +317,49 @@ private fun BucketCard(
                 val contribution = bucket.monthly_contribution?.toDoubleOrNull()
                 if (contribution != null && contribution > 0) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp), thickness = 0.5.dp)
-                    val monthFull = monthlySpent >= contribution
+                    val overSpent = monthlySpent > contribution
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            "This month",
+                            "Spent",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             "${formatCurrency(monthlySpent.toString())} / ${formatCurrency(bucket.monthly_contribution)}",
                             style = MaterialTheme.typography.bodySmall,
+                            color = if (overSpent) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    val spentProgress = (monthlySpent / contribution).toFloat().coerceIn(0f, 1f)
+                    LinearProgressIndicator(
+                        progress = { spentProgress },
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        color = if (overSpent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
+                        trackColor = (if (overSpent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary).copy(alpha = 0.2f)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp), thickness = 0.5.dp)
+                    val monthFull = monthlyDeposits >= contribution
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Contributed",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "${formatCurrency(monthlyDeposits.toString())} / ${formatCurrency(bucket.monthly_contribution)}",
+                            style = MaterialTheme.typography.bodySmall,
                             color = if (monthFull) MaterialTheme.colorScheme.secondary
                                     else MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    val monthProgress = (monthlySpent / contribution).toFloat().coerceIn(0f, 1f)
+                    val monthProgress = (monthlyDeposits / contribution).toFloat().coerceIn(0f, 1f)
                     LinearProgressIndicator(
                         progress = { monthProgress },
                         modifier = Modifier.fillMaxWidth().height(6.dp),

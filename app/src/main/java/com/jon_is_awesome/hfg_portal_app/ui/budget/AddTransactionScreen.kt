@@ -31,12 +31,11 @@ fun AddTransactionScreen(
     val buckets by viewModel.buckets.collectAsState()
     val bucket = buckets.find { it.id == bucketId }
     val bucketName = bucket?.name
-    val isSinkingFund = bucket?.monthly_budget.toDoubleOrNullSafe() == null
 
     var amount by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var date by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    var type by remember(isSinkingFund) { mutableStateOf(if (isSinkingFund) "sinking_fund_deposit" else "expense") }
+    var type by remember { mutableStateOf("expense") }
     var typeDropdownExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
@@ -104,7 +103,7 @@ fun AddTransactionScreen(
                 ) {
                     TRANSACTION_TYPES.forEach { t ->
                         DropdownMenuItem(
-                            text = { Text(t.replaceFirstChar { it.uppercase() }) },
+                            text = { Text(formatTransactionType(t)) },
                             onClick = {
                                 type = t
                                 typeDropdownExpanded = false
