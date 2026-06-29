@@ -27,6 +27,8 @@ import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetRemoteViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.budget.BudgetRemoteViewModelFactory
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarMaintenanceViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.carlogs.CarMaintenanceViewModelFactory
+import com.jon_is_awesome.hfg_portal_app.ui.loanrepayment.LoanRepaymentViewModel
+import com.jon_is_awesome.hfg_portal_app.ui.loanrepayment.LoanRepaymentViewModelFactory
 import coil.compose.AsyncImage
 import com.jon_is_awesome.hfg_portal_app.ui.navigation.NavGraph
 import com.jon_is_awesome.hfg_portal_app.ui.navigation.Screen
@@ -94,6 +96,9 @@ fun MainScreen(authViewModel: AuthViewModel) {
     val carVm: CarMaintenanceViewModel = viewModel(
         factory = CarMaintenanceViewModelFactory(app, app.remoteDataSource)
     )
+    val loanVm: LoanRepaymentViewModel = viewModel(
+        factory = LoanRepaymentViewModelFactory(app, app.remoteDataSource)
+    )
 
     var isRefreshing by remember { mutableStateOf(false) }
     val infiniteTransition = rememberInfiniteTransition(label = "refresh")
@@ -114,10 +119,11 @@ fun MainScreen(authViewModel: AuthViewModel) {
 
     val menuItems by remember {
         derivedStateOf {
-            listOf(Screen.Budget, Screen.CarLogs).filter { screen ->
+            listOf(Screen.Budget, Screen.CarLogs, Screen.LoanRepayment).filter { screen ->
                 when (screen.route) {
                     Screen.Budget.route -> userRoles.containsKey("Budget")
                     Screen.CarLogs.route -> userRoles.containsKey("Car Maintenance")
+                    Screen.LoanRepayment.route -> userRoles.containsKey("Loan Repayment")
                     else -> true
                 }
             }
@@ -136,6 +142,7 @@ fun MainScreen(authViewModel: AuthViewModel) {
             val accessible = when (lastSection) {
                 Screen.Budget.route -> carVm.userRoles.value.containsKey("Budget")
                 Screen.CarLogs.route -> carVm.userRoles.value.containsKey("Car Maintenance")
+                Screen.LoanRepayment.route -> carVm.userRoles.value.containsKey("Loan Repayment")
                 else -> true
             }
             if (accessible) {
@@ -215,7 +222,7 @@ fun MainScreen(authViewModel: AuthViewModel) {
                                     launchSingleTop = true
                                     restoreState = true
                                 }
-                                if (screen.route == Screen.Budget.route || screen.route == Screen.CarLogs.route) {
+                                if (screen.route == Screen.Budget.route || screen.route == Screen.CarLogs.route || screen.route == Screen.LoanRepayment.route) {
                                     scope.launch { userPrefs.saveLastSection(screen.route) }
                                 }
                                 scope.launch { drawerState.close() }
@@ -305,6 +312,8 @@ fun MainScreen(authViewModel: AuthViewModel) {
                                     || currentDestination?.route?.startsWith("bucket") == true
                                     || currentDestination?.route?.startsWith("add_bucket") == true
                                     || currentDestination?.route?.startsWith("add_transaction") == true -> "Budget"
+                                currentDestination?.route?.startsWith("loan_") == true
+                                    || currentDestination?.route?.startsWith("add_repayment") == true -> "Loan Repayment"
                                 currentDestination?.route == Screen.Settings.route -> "Settings"
                                 else -> "HFG Portal"
                             }
@@ -321,6 +330,8 @@ fun MainScreen(authViewModel: AuthViewModel) {
                             || route == Screen.CarLogs.route
                             || route?.startsWith("bucket_detail") == true
                             || route?.startsWith("service_history_detail") == true
+                            || route == Screen.LoanRepayment.route
+                            || route?.startsWith("loan_detail") == true
                         if (isRefreshable) {
                             val bucketId = navBackStackEntry?.arguments?.getInt("bucketId")
                             val histId = navBackStackEntry?.arguments?.getInt("serviceHistoryId")
@@ -330,6 +341,7 @@ fun MainScreen(authViewModel: AuthViewModel) {
                                         isRefreshing = true
                                         scope.launch {
                                             val minDelay = async { delay(2000) }
+                                            val loanId = navBackStackEntry?.arguments?.getInt("loanId")
                                             val work = async {
                                                 when {
                                                     route == Screen.Budget.route ->
@@ -340,6 +352,10 @@ fun MainScreen(authViewModel: AuthViewModel) {
                                                         carVm.refreshCarList()
                                                     route?.startsWith("service_history_detail") == true && histId != null ->
                                                         carVm.refreshServiceHistoryDetail(histId)
+                                                    route == Screen.LoanRepayment.route ->
+                                                        loanVm.refreshLoanList()
+                                                    route?.startsWith("loan_detail") == true && loanId != null ->
+                                                        loanVm.refreshLoanDetail(loanId)
                                                 }
                                             }
                                             minDelay.await()

@@ -36,6 +36,11 @@ import com.jon_is_awesome.hfg_portal_app.ui.expenses.AddExpenseScreen
 import com.jon_is_awesome.hfg_portal_app.ui.expenses.ExpenseListScreen
 import com.jon_is_awesome.hfg_portal_app.ui.expenses.ExpenseViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.expenses.ExpenseViewModelFactory
+import com.jon_is_awesome.hfg_portal_app.ui.loanrepayment.AddRepaymentScreen
+import com.jon_is_awesome.hfg_portal_app.ui.loanrepayment.LoanDetailScreen
+import com.jon_is_awesome.hfg_portal_app.ui.loanrepayment.LoanListScreen
+import com.jon_is_awesome.hfg_portal_app.ui.loanrepayment.LoanRepaymentViewModel
+import com.jon_is_awesome.hfg_portal_app.ui.loanrepayment.LoanRepaymentViewModelFactory
 import com.jon_is_awesome.hfg_portal_app.ui.settings.SettingsScreen
 import com.jon_is_awesome.hfg_portal_app.ui.settings.SettingsViewModel
 import com.jon_is_awesome.hfg_portal_app.ui.settings.SettingsViewModelFactory
@@ -62,6 +67,10 @@ fun NavGraph(navController: NavHostController, adminModeEnabled: Boolean, modifi
 
     val budgetRemoteViewModel: BudgetRemoteViewModel = viewModel(
         factory = BudgetRemoteViewModelFactory(app, remoteDataSource)
+    )
+
+    val loanRepaymentViewModel: LoanRepaymentViewModel = viewModel(
+        factory = LoanRepaymentViewModelFactory(app, remoteDataSource)
     )
 
     val settingsViewModel: SettingsViewModel = viewModel(
@@ -201,6 +210,51 @@ fun NavGraph(navController: NavHostController, adminModeEnabled: Boolean, modifi
             AddTransactionScreen(
                 bucketId = bucketId,
                 viewModel = budgetRemoteViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.LoanRepayment.route) {
+            val userRoles by loanRepaymentViewModel.userRoles.collectAsState()
+            val hasAccess = userRoles.isEmpty() || userRoles.containsKey("Loan Repayment")
+            LaunchedEffect(userRoles) {
+                if (userRoles.isNotEmpty() && !userRoles.containsKey("Loan Repayment")) {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Dashboard.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                }
+            }
+            if (hasAccess) {
+                LoanListScreen(
+                    viewModel = loanRepaymentViewModel,
+                    onLoanClick = { loan -> navController.navigate("loan_detail/${loan.id}") }
+                )
+            }
+        }
+        composable(
+            "loan_detail/{loanId}",
+            arguments = listOf(navArgument("loanId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val loanId = backStackEntry.arguments?.getInt("loanId") ?: return@composable
+            val userRoles by loanRepaymentViewModel.userRoles.collectAsState()
+            val loanRole = userRoles["Loan Repayment"]
+            LoanDetailScreen(
+                loanId = loanId,
+                viewModel = loanRepaymentViewModel,
+                canEdit = loanRole == "Edit" || loanRole == "Admin",
+                canAdmin = loanRole == "Admin" && adminModeEnabled,
+                onNavigateBack = { navController.popBackStack() },
+                onAddRepaymentClick = { navController.navigate("add_repayment/$loanId") }
+            )
+        }
+        composable(
+            "add_repayment/{loanId}",
+            arguments = listOf(navArgument("loanId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val loanId = backStackEntry.arguments?.getInt("loanId") ?: return@composable
+            AddRepaymentScreen(
+                loanId = loanId,
+                viewModel = loanRepaymentViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

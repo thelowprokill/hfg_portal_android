@@ -36,6 +36,8 @@ class RemoteDataSource(private val context: Context) {
     private val _serviceHistory = MutableStateFlow<List<RemoteServiceHistory>>(emptyList())
     private val _maintenanceItems = MutableStateFlow<List<RemoteMaintenanceItem>>(emptyList())
     private val _maintenanceImages = MutableStateFlow<List<RemoteMaintenanceImage>>(emptyList())
+    private val _loans = MutableStateFlow<List<RemoteLoan>>(emptyList())
+    private val _repayments = MutableStateFlow<List<RemoteRepayment>>(emptyList())
     private val _buckets = MutableStateFlow<List<RemoteBucket>>(emptyList())
     private val _transactions = MutableStateFlow<List<RemoteTransaction>>(emptyList())
     private val _allTransactions = MutableStateFlow<List<RemoteTransaction>>(emptyList())
@@ -46,6 +48,8 @@ class RemoteDataSource(private val context: Context) {
     private val _loggedInUsername = MutableStateFlow<String?>(null)
     private val _userRoles = MutableStateFlow<Map<String, String>>(emptyMap())
 
+    val loans: StateFlow<List<RemoteLoan>> = _loans
+    val repayments: StateFlow<List<RemoteRepayment>> = _repayments
     val cars: StateFlow<List<RemoteCar>> = _cars
     val serviceHistory: StateFlow<List<RemoteServiceHistory>> = _serviceHistory
     val maintenanceItems: StateFlow<List<RemoteMaintenanceItem>> = _maintenanceItems
@@ -153,6 +157,7 @@ class RemoteDataSource(private val context: Context) {
                     fetchCars()
                     fetchBuckets()
                     fetchAllTransactions()
+                    fetchLoans()
                 } else {
                     Log.w(TAG, "Login failed: jwt is null or blank in response")
                     _isLoggedIn.value = false
@@ -325,6 +330,79 @@ class RemoteDataSource(private val context: Context) {
         } ?: false
     }
 
+    suspend fun fetchLoans() {
+        val baseURL = BuildConfig.BASE_URL
+        client?.let {
+            try {
+                val response: LoanListResponse = it.get("${baseURL}/apis/call") {
+                    parameter("scope", "loan_repayment:loans")
+                    parameter("route", "loans")
+                }.body()
+                _loans.value = response.data
+                Log.d(TAG, "fetchLoans success: count=${response.data.size}")
+            } catch (e: Exception) {
+                Log.e(TAG, "fetchLoans error", e)
+            }
+        }
+    }
+
+    suspend fun fetchRepayments(loanId: Int) {
+        val baseURL = BuildConfig.BASE_URL
+        _repayments.value = emptyList()
+        client?.let {
+            try {
+                val response: RepaymentListResponse = it.get("${baseURL}/apis/call") {
+                    parameter("scope", "loan_repayment:repayments")
+                    parameter("route", "repayments")
+                    parameter("loan_id", loanId)
+                }.body()
+                _repayments.value = response.data
+                Log.d(TAG, "fetchRepayments success for loan $loanId: count=${response.data.size}")
+            } catch (e: Exception) {
+                Log.e(TAG, "fetchRepayments error", e)
+            }
+        }
+    }
+
+    suspend fun addRepayment(
+        loanId: Int,
+        paidAmount: String
+    ): Boolean {
+        val baseURL = BuildConfig.BASE_URL
+        return client?.let {
+            try {
+                val response: GenericResponse = it.put("${baseURL}/apis/call") {
+                    parameter("scope", "loan_repayment:repayments")
+                    parameter("route", "repayment")
+                    parameter("loan_id", loanId)
+                    parameter("paid_amount", paidAmount)
+                }.body()
+                Log.d(TAG, "addRepayment response: ${response.response}")
+                response.response == "ok"
+            } catch (e: Exception) {
+                Log.e(TAG, "addRepayment error", e)
+                false
+            }
+        } ?: false
+    }
+
+    suspend fun deleteRepayment(id: Int): Boolean {
+        val baseURL = BuildConfig.BASE_URL
+        return client?.let {
+            try {
+                val response: GenericResponse = it.delete("${baseURL}/apis/call") {
+                    parameter("scope", "loan_repayment:repayments")
+                    parameter("route", "repayment")
+                    parameter("id", id)
+                }.body()
+                response.response == "ok"
+            } catch (e: Exception) {
+                Log.e(TAG, "deleteRepayment error", e)
+                false
+            }
+        } ?: false
+    }
+
     suspend fun fetchBuckets() {
         val baseURL = BuildConfig.BASE_URL
         client?.let {
@@ -492,6 +570,8 @@ class RemoteDataSource(private val context: Context) {
         _isLoggedIn.value = false
         _loggedInUsername.value = null
         _userRoles.value = emptyMap()
+        _loans.value = emptyList()
+        _repayments.value = emptyList()
         _cars.value = emptyList()
         _maintenanceImages.value = emptyList()
         _buckets.value = emptyList()

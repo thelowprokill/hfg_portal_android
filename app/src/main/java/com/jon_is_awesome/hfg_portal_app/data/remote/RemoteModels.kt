@@ -89,6 +89,44 @@ data class RemoteMaintenanceImage(
     val image_content_type: String? = null
 )
 
+// ---- Loan Repayment ----
+
+@Serializable
+data class LoanListResponse(
+    val data: List<RemoteLoan> = emptyList(),
+    val date: String? = null,
+    val response: String? = null
+)
+
+@Serializable
+data class RemoteLoan(
+    val id: Int,
+    val active: Boolean? = null,
+    val description: String? = null,
+    @kotlinx.serialization.SerialName("for") val loanFor: String? = null,
+    val amount: String? = null,
+    val paid_amount_tot: String? = null,
+    val remaining_balance: String? = null,
+    val paid_to: String? = null
+)
+
+@Serializable
+data class RepaymentListResponse(
+    val data: List<RemoteRepayment> = emptyList(),
+    val date: String? = null,
+    val response: String? = null
+)
+
+@Serializable
+data class RemoteRepayment(
+    val id: Int,
+    val loan_id: Int? = null,
+    val paid_amount: String? = null,
+    val paid_amount_tot: String? = null,
+    val remaining_balance: String? = null,
+    val inserted_at: String? = null
+)
+
 // ---- Budget ----
 
 @Serializable
