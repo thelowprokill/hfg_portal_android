@@ -403,13 +403,17 @@ class RemoteDataSource(private val context: Context) {
         } ?: false
     }
 
-    suspend fun fetchBuckets() {
+    suspend fun fetchBuckets(search: String = "", sortField: String = "name", sortOrder: String = "asc") {
         val baseURL = BuildConfig.BASE_URL
         client?.let {
             try {
                 val response: BucketListResponse = it.get("${baseURL}/apis/call") {
                     parameter("scope", "budget:buckets")
                     parameter("route", "buckets")
+                    if (search.isNotBlank()) {
+                        parameter("search_stack", "[{\"field\":\"name\",\"val\":\"$search\"}]")
+                    }
+                    parameter("sort_stack", "[{\"field\":\"$sortField\",\"order\":\"$sortOrder\"}]")
                 }.body()
                 _buckets.value = response.data
                 Log.d(TAG, "fetchBuckets success: count=${response.data.size}")

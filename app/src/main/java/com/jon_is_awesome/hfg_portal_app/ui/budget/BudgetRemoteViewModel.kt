@@ -9,7 +9,10 @@ import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteDataSource
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteBucket
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteTransaction
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteScheduledExpense
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
@@ -25,8 +28,38 @@ class BudgetRemoteViewModel(
     val isLoggedIn: StateFlow<Boolean?> = remoteDataSource.isLoggedIn
     val userRoles: StateFlow<Map<String, String>> = remoteDataSource.userRoles
 
-    fun fetchBuckets() {
-        viewModelScope.launch { remoteDataSource.fetchBuckets() }
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
+
+    private val _sortField = MutableStateFlow("name")
+    val sortField: StateFlow<String> = _sortField
+
+    private val _sortOrder = MutableStateFlow("asc")
+    val sortOrder: StateFlow<String> = _sortOrder
+
+    private var searchJob: Job? = null
+
+    private fun doFetchBuckets() {
+        viewModelScope.launch {
+            remoteDataSource.fetchBuckets(_searchQuery.value, _sortField.value, _sortOrder.value)
+        }
+    }
+
+    fun fetchBuckets() = doFetchBuckets()
+
+    fun setSearch(query: String) {
+        _searchQuery.value = query
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            delay(300)
+            remoteDataSource.fetchBuckets(_searchQuery.value, _sortField.value, _sortOrder.value)
+        }
+    }
+
+    fun setSort(field: String, order: String) {
+        _sortField.value = field
+        _sortOrder.value = order
+        doFetchBuckets()
     }
 
     fun fetchAllTransactions() {
@@ -35,7 +68,7 @@ class BudgetRemoteViewModel(
 
     suspend fun refreshBudgetList() {
         coroutineScope {
-            launch { remoteDataSource.fetchBuckets() }
+            launch { remoteDataSource.fetchBuckets(_searchQuery.value, _sortField.value, _sortOrder.value) }
             launch { remoteDataSource.fetchAllTransactions() }
         }
     }
@@ -62,7 +95,7 @@ class BudgetRemoteViewModel(
     ) {
         viewModelScope.launch {
             val success = remoteDataSource.addBucket(name, description, monthlyBudget, monthlyContribution, maxBalance)
-            if (success) remoteDataSource.fetchBuckets()
+            if (success) remoteDataSource.fetchBuckets(_searchQuery.value, _sortField.value, _sortOrder.value)
             onResult(success)
         }
     }
@@ -70,7 +103,7 @@ class BudgetRemoteViewModel(
     fun deleteBucket(id: Int, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             val success = remoteDataSource.deleteBucket(id)
-            if (success) remoteDataSource.fetchBuckets()
+            if (success) remoteDataSource.fetchBuckets(_searchQuery.value, _sortField.value, _sortOrder.value)
             onResult(success)
         }
     }
@@ -87,7 +120,7 @@ class BudgetRemoteViewModel(
             val success = remoteDataSource.addTransaction(bucketId, amount, description, date, type)
             if (success) {
                 remoteDataSource.fetchTransactions(bucketId)
-                remoteDataSource.fetchBuckets()
+                remoteDataSource.fetchBuckets(_searchQuery.value, _sortField.value, _sortOrder.value)
                 remoteDataSource.fetchAllTransactions()
             }
             onResult(success)
@@ -99,7 +132,7 @@ class BudgetRemoteViewModel(
             val success = remoteDataSource.deleteTransaction(id)
             if (success) {
                 remoteDataSource.fetchTransactions(bucketId)
-                remoteDataSource.fetchBuckets()
+                remoteDataSource.fetchBuckets(_searchQuery.value, _sortField.value, _sortOrder.value)
                 remoteDataSource.fetchAllTransactions()
             }
             onResult(success)

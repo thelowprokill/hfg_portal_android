@@ -4,9 +4,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +24,13 @@ import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteTransaction
 import java.text.SimpleDateFormat
 import java.util.*
 
+private val SORT_FIELDS = listOf(
+    "name" to "Name",
+    "balance" to "Balance",
+    "monthly_budget" to "Budget",
+    "monthly_contribution" to "Contribution"
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BudgetListScreen(
@@ -27,6 +40,19 @@ fun BudgetListScreen(
     val buckets by viewModel.buckets.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val sortField by viewModel.sortField.collectAsState()
+    val sortOrder by viewModel.sortOrder.collectAsState()
+
+    var sortDropdownExpanded by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+
+    // Scroll past the search/sort items on first load so they're hidden above the fold
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn == true) {
+            listState.scrollToItem(2)
+        }
+    }
 
     val now = remember { Calendar.getInstance() }
     var selectedMonth by remember { mutableIntStateOf(now.get(Calendar.MONTH)) }
@@ -101,10 +127,67 @@ fun BudgetListScreen(
             when (isLoggedIn) {
                 true -> {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        item {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { viewModel.setSearch(it) },
+                                placeholder = { Text("Search buckets…") },
+                                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                        }
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                ExposedDropdownMenuBox(
+                                    expanded = sortDropdownExpanded,
+                                    onExpandedChange = { sortDropdownExpanded = it },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    OutlinedTextField(
+                                        value = SORT_FIELDS.find { it.first == sortField }?.second ?: sortField,
+                                        onValueChange = {},
+                                        readOnly = true,
+                                        label = { Text("Sort by") },
+                                        leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = null) },
+                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sortDropdownExpanded) },
+                                        modifier = Modifier.menuAnchor()
+                                    )
+                                    ExposedDropdownMenu(
+                                        expanded = sortDropdownExpanded,
+                                        onDismissRequest = { sortDropdownExpanded = false }
+                                    ) {
+                                        SORT_FIELDS.forEach { (value, label) ->
+                                            DropdownMenuItem(
+                                                text = { Text(label) },
+                                                onClick = {
+                                                    viewModel.setSort(value, sortOrder)
+                                                    sortDropdownExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                IconButton(onClick = {
+                                    viewModel.setSort(sortField, if (sortOrder == "asc") "desc" else "asc")
+                                }) {
+                                    Icon(
+                                        if (sortOrder == "asc") Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
+                                        contentDescription = if (sortOrder == "asc") "Ascending" else "Descending"
+                                    )
+                                }
+                            }
+                        }
                         item {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
