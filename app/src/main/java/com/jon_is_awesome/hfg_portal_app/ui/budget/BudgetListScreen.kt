@@ -46,6 +46,8 @@ fun BudgetListScreen(
 
     var sortDropdownExpanded by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val selectedMonth by viewModel.selectedMonth.collectAsState()
+    val selectedYear by viewModel.selectedYear.collectAsState()
 
     // Scroll past the search/sort items on first load so they're hidden above the fold
     LaunchedEffect(isLoggedIn) {
@@ -53,10 +55,6 @@ fun BudgetListScreen(
             listState.scrollToItem(2)
         }
     }
-
-    val now = remember { Calendar.getInstance() }
-    var selectedMonth by remember { mutableIntStateOf(now.get(Calendar.MONTH)) }
-    var selectedYear by remember { mutableIntStateOf(now.get(Calendar.YEAR)) }
 
     val monthLabel = remember(selectedMonth, selectedYear) {
         val cal = Calendar.getInstance().also {
@@ -195,15 +193,15 @@ fun BudgetListScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(onClick = {
-                                    if (selectedMonth == 0) { selectedMonth = 11; selectedYear-- }
-                                    else selectedMonth--
+                                    if (selectedMonth == 0) viewModel.setSelectedMonth(11, selectedYear - 1)
+                                    else viewModel.setSelectedMonth(selectedMonth - 1, selectedYear)
                                 }) {
                                     Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = "Previous month")
                                 }
                                 Text(monthLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 IconButton(onClick = {
-                                    if (selectedMonth == 11) { selectedMonth = 0; selectedYear++ }
-                                    else selectedMonth++
+                                    if (selectedMonth == 11) viewModel.setSelectedMonth(0, selectedYear + 1)
+                                    else viewModel.setSelectedMonth(selectedMonth + 1, selectedYear)
                                 }) {
                                     Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "Next month")
                                 }

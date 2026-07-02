@@ -37,6 +37,17 @@ class BudgetRemoteViewModel(
     private val _sortOrder = MutableStateFlow("asc")
     val sortOrder: StateFlow<String> = _sortOrder
 
+    private val _selectedMonth = MutableStateFlow(java.util.Calendar.getInstance().get(java.util.Calendar.MONTH))
+    val selectedMonth: StateFlow<Int> = _selectedMonth
+
+    private val _selectedYear = MutableStateFlow(java.util.Calendar.getInstance().get(java.util.Calendar.YEAR))
+    val selectedYear: StateFlow<Int> = _selectedYear
+
+    fun setSelectedMonth(month: Int, year: Int) {
+        _selectedMonth.value = month
+        _selectedYear.value = year
+    }
+
     private var searchJob: Job? = null
 
     private fun doFetchBuckets() {

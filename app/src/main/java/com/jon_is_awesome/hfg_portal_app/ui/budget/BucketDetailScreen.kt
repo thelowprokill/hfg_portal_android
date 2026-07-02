@@ -39,10 +39,9 @@ fun BucketDetailScreen(
     // Filter scheduled expenses client-side in case the API returns all
     val bucketScheduledExpenses = scheduledExpenses.filter { it.bucket_id == bucketId }
 
-    // Month navigation
-    val now = remember { Calendar.getInstance() }
-    var selectedMonth by remember { mutableIntStateOf(now.get(Calendar.MONTH)) }
-    var selectedYear by remember { mutableIntStateOf(now.get(Calendar.YEAR)) }
+    // Month navigation — shared with BudgetListScreen via ViewModel
+    val selectedMonth by viewModel.selectedMonth.collectAsState()
+    val selectedYear by viewModel.selectedYear.collectAsState()
 
     val monthLabel = remember(selectedMonth, selectedYear) {
         val cal = Calendar.getInstance().also {
@@ -137,15 +136,15 @@ fun BucketDetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = {
-                        if (selectedMonth == 0) { selectedMonth = 11; selectedYear-- }
-                        else selectedMonth--
+                        if (selectedMonth == 0) viewModel.setSelectedMonth(11, selectedYear - 1)
+                        else viewModel.setSelectedMonth(selectedMonth - 1, selectedYear)
                     }) {
                         Icon(Icons.Rounded.KeyboardArrowLeft, contentDescription = "Previous month")
                     }
                     Text(monthLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     IconButton(onClick = {
-                        if (selectedMonth == 11) { selectedMonth = 0; selectedYear++ }
-                        else selectedMonth++
+                        if (selectedMonth == 11) viewModel.setSelectedMonth(0, selectedYear + 1)
+                        else viewModel.setSelectedMonth(selectedMonth + 1, selectedYear)
                     }) {
                         Icon(Icons.Rounded.KeyboardArrowRight, contentDescription = "Next month")
                     }
