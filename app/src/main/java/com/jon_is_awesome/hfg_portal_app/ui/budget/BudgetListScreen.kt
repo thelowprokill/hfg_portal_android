@@ -39,6 +39,7 @@ fun BudgetListScreen(
 ) {
     val buckets by viewModel.buckets.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
+    val accountTotals by viewModel.accountTotals.collectAsState()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val sortField by viewModel.sortField.collectAsState()
@@ -273,6 +274,36 @@ fun BudgetListScreen(
                                             color = MaterialTheme.colorScheme.secondary,
                                             trackColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
                                         )
+                                    }
+                                    if (accountTotals != null) {
+                                        HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp), thickness = 0.5.dp)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Credits", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(formatCurrency(accountTotals?.credit_total), style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Debits", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(formatCurrency(accountTotals?.debit_total), style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Total", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                            val totalMoney = accountTotals?.total_money?.toDoubleOrNull()
+                                            Text(
+                                                formatCurrency(accountTotals?.total_money),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (totalMoney != null && totalMoney < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
                                     }
                                 }
                             }

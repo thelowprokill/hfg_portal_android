@@ -21,6 +21,16 @@ private val TRANSACTION_TYPES = listOf("expense", "contribution", "sinking_fund_
 private fun formatTransactionType(type: String): String =
     type.split("_").joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
 
+// DatePicker and formatDate() both work in UTC millis, so "today" must be expressed as
+// today's local calendar date at UTC midnight, not the raw current instant.
+private fun todayAsUtcMillis(): Long {
+    val local = Calendar.getInstance()
+    return Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+        clear()
+        set(local.get(Calendar.YEAR), local.get(Calendar.MONTH), local.get(Calendar.DAY_OF_MONTH))
+    }.timeInMillis
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionScreen(
@@ -34,7 +44,7 @@ fun AddTransactionScreen(
 
     var amount by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var date by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var date by remember { mutableLongStateOf(todayAsUtcMillis()) }
     var type by remember { mutableStateOf("expense") }
     var typeDropdownExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }

@@ -9,6 +9,7 @@ import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteDataSource
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteBucket
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteTransaction
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteScheduledExpense
+import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteAccountTotals
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -25,6 +26,7 @@ class BudgetRemoteViewModel(
     val transactions: StateFlow<List<RemoteTransaction>> = remoteDataSource.transactions
     val allTransactions: StateFlow<List<RemoteTransaction>> = remoteDataSource.allTransactions
     val scheduledExpenses: StateFlow<List<RemoteScheduledExpense>> = remoteDataSource.scheduledExpenses
+    val accountTotals: StateFlow<RemoteAccountTotals?> = remoteDataSource.accountTotals
     val isLoggedIn: StateFlow<Boolean?> = remoteDataSource.isLoggedIn
     val userRoles: StateFlow<Map<String, String>> = remoteDataSource.userRoles
 
@@ -46,6 +48,13 @@ class BudgetRemoteViewModel(
     fun setSelectedMonth(month: Int, year: Int) {
         _selectedMonth.value = month
         _selectedYear.value = year
+        doFetchAccountTotals()
+    }
+
+    private fun doFetchAccountTotals() {
+        viewModelScope.launch {
+            remoteDataSource.fetchAccountTotals(_selectedMonth.value + 1, _selectedYear.value)
+        }
     }
 
     private var searchJob: Job? = null
@@ -81,6 +90,7 @@ class BudgetRemoteViewModel(
         coroutineScope {
             launch { remoteDataSource.fetchBuckets(_searchQuery.value, _sortField.value, _sortOrder.value) }
             launch { remoteDataSource.fetchAllTransactions() }
+            launch { remoteDataSource.fetchAccountTotals(_selectedMonth.value + 1, _selectedYear.value) }
         }
     }
 

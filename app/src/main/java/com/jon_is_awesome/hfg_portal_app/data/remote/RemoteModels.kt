@@ -182,3 +182,19 @@ data class RemoteScheduledExpense(
     val active: Boolean? = null,
     val bucket_id: Int? = null
 )
+
+@Serializable
+data class AccountTotalsResponse(
+    val data: RemoteAccountTotals? = null,
+    val response: String? = null
+)
+
+@Serializable
+data class RemoteAccountTotals(
+    val month: Int? = null,
+    val year: Int? = null,
+    val debit_total: String? = null,
+    val credit_total: String? = null,
+    val sinking_total: String? = null,
+    val total_money: String? = null
+)

@@ -42,6 +42,7 @@ class RemoteDataSource(private val context: Context) {
     private val _transactions = MutableStateFlow<List<RemoteTransaction>>(emptyList())
     private val _allTransactions = MutableStateFlow<List<RemoteTransaction>>(emptyList())
     private val _scheduledExpenses = MutableStateFlow<List<RemoteScheduledExpense>>(emptyList())
+    private val _accountTotals = MutableStateFlow<RemoteAccountTotals?>(null)
     private val _isLoggedIn = MutableStateFlow<Boolean?>(null)
     private val _token = MutableStateFlow<String?>(null)
     private val _loginError = MutableSharedFlow<String>()
@@ -58,6 +59,7 @@ class RemoteDataSource(private val context: Context) {
     val transactions: StateFlow<List<RemoteTransaction>> = _transactions
     val allTransactions: StateFlow<List<RemoteTransaction>> = _allTransactions
     val scheduledExpenses: StateFlow<List<RemoteScheduledExpense>> = _scheduledExpenses
+    val accountTotals: StateFlow<RemoteAccountTotals?> = _accountTotals
     val isLoggedIn: StateFlow<Boolean?> = _isLoggedIn
     val loginError = _loginError.asSharedFlow()
     val loggedInUsername: StateFlow<String?> = _loggedInUsername
@@ -157,6 +159,8 @@ class RemoteDataSource(private val context: Context) {
                     fetchCars()
                     fetchBuckets()
                     fetchAllTransactions()
+                    val now = java.util.Calendar.getInstance()
+                    fetchAccountTotals(now.get(java.util.Calendar.MONTH) + 1, now.get(java.util.Calendar.YEAR))
                     fetchLoans()
                 } else {
                     Log.w(TAG, "Login failed: jwt is null or blank in response")
@@ -453,6 +457,24 @@ class RemoteDataSource(private val context: Context) {
                 Log.d(TAG, "fetchAllTransactions success: count=${response.data.size}")
             } catch (e: Exception) {
                 Log.e(TAG, "fetchAllTransactions error", e)
+            }
+        }
+    }
+
+    suspend fun fetchAccountTotals(month: Int, year: Int) {
+        val baseURL = BuildConfig.BASE_URL
+        client?.let {
+            try {
+                val response: AccountTotalsResponse = it.get("${baseURL}/apis/call") {
+                    parameter("scope", "budget")
+                    parameter("route", "account_totals")
+                    parameter("month", month)
+                    parameter("year", year)
+                }.body()
+                _accountTotals.value = response.data
+                Log.d(TAG, "fetchAccountTotals success for $month/$year")
+            } catch (e: Exception) {
+                Log.e(TAG, "fetchAccountTotals error", e)
             }
         }
     }
