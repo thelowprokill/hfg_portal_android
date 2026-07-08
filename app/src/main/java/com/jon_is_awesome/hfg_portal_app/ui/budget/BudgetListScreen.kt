@@ -281,6 +281,13 @@ fun BudgetListScreen(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
+                                            Text("Debits", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(formatCurrency(accountTotals?.debit_total), style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
                                             Text("Credits", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             Text(formatCurrency(accountTotals?.credit_total), style = MaterialTheme.typography.bodySmall)
                                         }
@@ -288,9 +295,10 @@ fun BudgetListScreen(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Text("Debits", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            Text(formatCurrency(accountTotals?.debit_total), style = MaterialTheme.typography.bodySmall)
+                                            Text("Current Month Expenses", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("-${formatCurrency(accountTotals?.current_month_expenses)}", style = MaterialTheme.typography.bodySmall)
                                         }
+                                        HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp), thickness = 0.5.dp)
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween

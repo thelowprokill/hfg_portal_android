@@ -196,5 +196,6 @@ data class RemoteAccountTotals(
     val debit_total: String? = null,
     val credit_total: String? = null,
     val sinking_total: String? = null,
-    val total_money: String? = null
+    val total_money: String? = null,
+    val current_month_expenses: String? = null
 )
