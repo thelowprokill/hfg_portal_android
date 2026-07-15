@@ -71,19 +71,8 @@ fun BucketDetailScreen(
         .filter { it.type == "sinking_fund_deposit" || it.type == "contribution" }
         .mapNotNull { it.amount?.toDoubleOrNull() }.sum()
 
-    // Cumulative balance up to end of the selected month (expenses negative, deposits positive)
-    val balanceAtMonthEnd = transactions.filter { tx ->
-        tx.transaction_date?.let { d ->
-            val parts = d.split("-")
-            if (parts.size < 2) return@filter false
-            val txYear = parts[0].toIntOrNull() ?: return@filter false
-            val txMonth = (parts[1].toIntOrNull() ?: return@filter false) - 1
-            txYear < selectedYear || (txYear == selectedYear && txMonth <= selectedMonth)
-        } ?: false
-    }.mapNotNull { tx ->
-        val amount = tx.amount?.toDoubleOrNull() ?: return@mapNotNull null
-        if (tx.type == "expense") -amount else amount
-    }.sum()
+    // Current balance, straight from the server (not re-derived from the transaction list)
+    val balanceAtMonthEnd = bucket?.balance?.toDoubleOrNull() ?: 0.0
 
     var transactionToDelete by remember { mutableStateOf<RemoteTransaction?>(null) }
 

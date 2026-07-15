@@ -90,26 +90,6 @@ fun BudgetListScreen(
             .mapValues { (_, txs) -> txs.mapNotNull { it.amount?.toDoubleOrNull() }.sum() }
     }
 
-    val balanceAtMonthEndByBucket = remember(allTransactions, selectedMonth, selectedYear) {
-        allTransactions
-            .filter { tx ->
-                tx.transaction_date?.let { d ->
-                    val parts = d.split("-")
-                    if (parts.size < 2) return@filter false
-                    val txYear = parts[0].toIntOrNull() ?: return@filter false
-                    val txMonth = (parts[1].toIntOrNull() ?: return@filter false) - 1
-                    txYear < selectedYear || (txYear == selectedYear && txMonth <= selectedMonth)
-                } ?: false
-            }
-            .groupBy { it.bucket_id ?: -1 }
-            .mapValues { (_, txs) ->
-                txs.mapNotNull { tx ->
-                    val amount = tx.amount?.toDoubleOrNull() ?: return@mapNotNull null
-                    if (tx.type == "expense") -amount else amount
-                }.sum()
-            }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -214,7 +194,7 @@ fun BudgetListScreen(
                             val totalBudget = regularBuckets.mapNotNull { it.monthly_budget?.toDoubleOrNull() }.sum()
                             val totalSpent = regularBuckets.sumOf { monthlySpentByBucket[it.id] ?: 0.0 }
                             val sinkingBuckets = buckets.filter { it.monthly_budget.toDoubleOrNullSafe() == null }
-                            val totalSaved = sinkingBuckets.sumOf { balanceAtMonthEndByBucket[it.id] ?: 0.0 }
+                            val totalSaved = sinkingBuckets.sumOf { it.balance?.toDoubleOrNull() ?: 0.0 }
                             val totalGoal = sinkingBuckets.mapNotNull { it.max_balance?.toDoubleOrNull() }.sum()
                             val overBudget = totalBudget > 0 && totalSpent > totalBudget
 
@@ -326,7 +306,7 @@ fun BudgetListScreen(
                                 val isSinkingFund = bucket.monthly_budget.toDoubleOrNullSafe() == null
                                 val monthlySpent = monthlySpentByBucket[bucket.id] ?: 0.0
                                 val monthlyDeposits = monthlyDepositsByBucket[bucket.id] ?: 0.0
-                                val balanceAtMonthEnd = balanceAtMonthEndByBucket[bucket.id] ?: 0.0
+                                val balanceAtMonthEnd = bucket.balance?.toDoubleOrNull() ?: 0.0
                                 BucketCard(
                                     bucket = bucket,
                                     isSinkingFund = isSinkingFund,
