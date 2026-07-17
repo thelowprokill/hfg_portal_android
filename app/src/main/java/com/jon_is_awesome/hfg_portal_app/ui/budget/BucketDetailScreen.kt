@@ -34,7 +34,7 @@ fun BucketDetailScreen(
     val scheduledExpenses by viewModel.scheduledExpenses.collectAsState()
 
     val bucket = buckets.find { it.id == bucketId }
-    val isSinkingFund = bucket?.monthly_budget.toDoubleOrNullSafe() == null
+    val isSinkingFund = bucket?.isSinkingFund == true
 
     // Filter scheduled expenses client-side in case the API returns all
     val bucketScheduledExpenses = scheduledExpenses.filter { it.bucket_id == bucketId }
@@ -167,7 +167,8 @@ fun BucketDetailScreen(
                                     Text("Saved", style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(
-                                        "${formatCurrency(balanceAtMonthEnd.toString())} / ${formatCurrency(b.max_balance)}",
+                                        if (b.isEmergencyFund) formatCurrency(balanceAtMonthEnd.toString())
+                                        else "${formatCurrency(balanceAtMonthEnd.toString())} / ${formatCurrency(b.max_balance)}",
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
@@ -200,19 +201,22 @@ fun BucketDetailScreen(
                                         Text("Spent", style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Text(
-                                            "${formatCurrency(monthlySpent.toString())} / ${formatCurrency(b.monthly_contribution)}",
+                                            if (b.isEmergencyFund) formatCurrency(monthlySpent.toString())
+                                            else "${formatCurrency(monthlySpent.toString())} / ${formatCurrency(b.monthly_contribution)}",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = if (overSpent) MaterialTheme.colorScheme.error
                                                     else MaterialTheme.colorScheme.onSurface
                                         )
                                     }
-                                    val spentProgress = (monthlySpent / contribution).toFloat().coerceIn(0f, 1f)
-                                    LinearProgressIndicator(
-                                        progress = { spentProgress },
-                                        modifier = Modifier.fillMaxWidth().height(8.dp),
-                                        color = if (overSpent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
-                                        trackColor = (if (overSpent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary).copy(alpha = 0.2f)
-                                    )
+                                    if (!b.isEmergencyFund) {
+                                        val spentProgress = (monthlySpent / contribution).toFloat().coerceIn(0f, 1f)
+                                        LinearProgressIndicator(
+                                            progress = { spentProgress },
+                                            modifier = Modifier.fillMaxWidth().height(8.dp),
+                                            color = if (overSpent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
+                                            trackColor = (if (overSpent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary).copy(alpha = 0.2f)
+                                        )
+                                    }
                                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), thickness = 0.5.dp)
                                     val monthFull = monthlyDeposits >= contribution
                                     Row(

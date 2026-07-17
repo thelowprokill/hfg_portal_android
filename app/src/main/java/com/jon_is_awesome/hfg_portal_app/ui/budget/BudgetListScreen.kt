@@ -90,6 +90,14 @@ fun BudgetListScreen(
             .mapValues { (_, txs) -> txs.mapNotNull { it.amount?.toDoubleOrNull() }.sum() }
     }
 
+    // The buckets endpoint has no month/year param, so its monthly_expenses/monthly_deposits
+    // fields only ever reflect the current month — fall back to the transaction-derived
+    // maps above when browsing a past or future month.
+    val isCurrentMonth = remember(selectedMonth, selectedYear) {
+        val now = Calendar.getInstance()
+        selectedMonth == now.get(Calendar.MONTH) && selectedYear == now.get(Calendar.YEAR)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -190,13 +198,18 @@ fun BudgetListScreen(
                         }
 
                         item {
-                            val regularBuckets = buckets.filter { it.monthly_budget.toDoubleOrNullSafe() != null }
+                            val regularBuckets = buckets.filter { !it.isSinkingFund }
                             val totalBudget = regularBuckets.mapNotNull { it.monthly_budget?.toDoubleOrNull() }.sum()
-                            val totalSpent = regularBuckets.sumOf { monthlySpentByBucket[it.id] ?: 0.0 }
-                            val sinkingBuckets = buckets.filter { it.monthly_budget.toDoubleOrNullSafe() == null }
+                            val totalSpent = regularBuckets.sumOf {
+                                (if (isCurrentMonth) it.monthly_expenses?.toDoubleOrNull() else null)
+                                    ?: monthlySpentByBucket[it.id] ?: 0.0
+                            }
+                            val sinkingBuckets = buckets.filter { it.isSinkingFund && !it.isEmergencyFund }
                             val totalSaved = sinkingBuckets.sumOf { it.balance?.toDoubleOrNull() ?: 0.0 }
                             val totalGoal = sinkingBuckets.mapNotNull { it.max_balance?.toDoubleOrNull() }.sum()
                             val overBudget = totalBudget > 0 && totalSpent > totalBudget
+                            val totalEmergency = buckets.filter { it.isEmergencyFund }
+                                .sumOf { it.balance?.toDoubleOrNull() ?: 0.0 }
 
                             Card(modifier = Modifier.fillMaxWidth()) {
                                 Column(
@@ -255,6 +268,20 @@ fun BudgetListScreen(
                                             trackColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
                                         )
                                     }
+                                    if (totalEmergency > 0) {
+                                        HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp), thickness = 0.5.dp)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Emergency fund", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(
+                                                formatCurrency(totalEmergency.toString()),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
                                     if (accountTotals != null) {
                                         HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp), thickness = 0.5.dp)
                                         Row(
@@ -303,13 +330,14 @@ fun BudgetListScreen(
                             }
                         } else {
                             items(buckets) { bucket ->
-                                val isSinkingFund = bucket.monthly_budget.toDoubleOrNullSafe() == null
-                                val monthlySpent = monthlySpentByBucket[bucket.id] ?: 0.0
-                                val monthlyDeposits = monthlyDepositsByBucket[bucket.id] ?: 0.0
+                                val monthlySpent = (if (isCurrentMonth) bucket.monthly_expenses?.toDoubleOrNull() else null)
+                                    ?: monthlySpentByBucket[bucket.id] ?: 0.0
+                                val monthlyDeposits = (if (isCurrentMonth) bucket.monthly_deposits?.toDoubleOrNull() else null)
+                                    ?: monthlyDepositsByBucket[bucket.id] ?: 0.0
                                 val balanceAtMonthEnd = bucket.balance?.toDoubleOrNull() ?: 0.0
                                 BucketCard(
                                     bucket = bucket,
-                                    isSinkingFund = isSinkingFund,
+                                    isSinkingFund = bucket.isSinkingFund,
                                     monthlySpent = monthlySpent,
                                     monthlyDeposits = monthlyDeposits,
                                     balanceAtMonthEnd = balanceAtMonthEnd,
@@ -361,7 +389,7 @@ private fun BucketCard(
                 )
                 if (isSinkingFund) {
                     Text(
-                        "SINKING FUND",
+                        if (bucket.isEmergencyFund) "EMERGENCY FUND" else "SINKING FUND",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.secondary,
                         fontWeight = FontWeight.Bold
@@ -383,7 +411,8 @@ private fun BucketCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "${formatCurrency(balanceAtMonthEnd.toString())} / ${formatCurrency(bucket.max_balance)}",
+                        if (bucket.isEmergencyFund) formatCurrency(balanceAtMonthEnd.toString())
+                        else "${formatCurrency(balanceAtMonthEnd.toString())} / ${formatCurrency(bucket.max_balance)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (goalReached) MaterialTheme.colorScheme.secondary
                                 else MaterialTheme.colorScheme.onSurface
@@ -421,19 +450,22 @@ private fun BucketCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            "${formatCurrency(monthlySpent.toString())} / ${formatCurrency(bucket.monthly_contribution)}",
+                            if (bucket.isEmergencyFund) formatCurrency(monthlySpent.toString())
+                            else "${formatCurrency(monthlySpent.toString())} / ${formatCurrency(bucket.monthly_contribution)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = if (overSpent) MaterialTheme.colorScheme.error
                                     else MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    val spentProgress = (monthlySpent / contribution).toFloat().coerceIn(0f, 1f)
-                    LinearProgressIndicator(
-                        progress = { spentProgress },
-                        modifier = Modifier.fillMaxWidth().height(6.dp),
-                        color = if (overSpent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
-                        trackColor = (if (overSpent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary).copy(alpha = 0.2f)
-                    )
+                    if (!bucket.isEmergencyFund) {
+                        val spentProgress = (monthlySpent / contribution).toFloat().coerceIn(0f, 1f)
+                        LinearProgressIndicator(
+                            progress = { spentProgress },
+                            modifier = Modifier.fillMaxWidth().height(6.dp),
+                            color = if (overSpent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
+                            trackColor = (if (overSpent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary).copy(alpha = 0.2f)
+                        )
+                    }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp), thickness = 0.5.dp)
                     val monthFull = monthlyDeposits >= contribution
                     Row(
@@ -511,6 +543,19 @@ internal fun String?.toDoubleOrNullSafe(): Double? {
     val d = this?.toDoubleOrNull() ?: return null
     return if (d == 0.0) null else d
 }
+
+// Falls back to a goal/contribution check for buckets fetched without a type — those fields
+// are only ever set on sinking/emergency funds, unlike monthly_budget which a normal bucket
+// can legitimately leave blank.
+internal val RemoteBucket.isSinkingFund: Boolean
+    get() = when (type?.trim()?.lowercase(Locale.ROOT)) {
+        "sinking_fund", "emergency_fund" -> true
+        "normal" -> false
+        else -> !max_balance.isNullOrBlank() || !monthly_contribution.isNullOrBlank()
+    }
+
+internal val RemoteBucket.isEmergencyFund: Boolean
+    get() = type?.trim()?.lowercase(Locale.ROOT) == "emergency_fund"
 
 internal fun formatCurrency(value: String?): String {
     val d = value?.toDoubleOrNull() ?: return "—"
