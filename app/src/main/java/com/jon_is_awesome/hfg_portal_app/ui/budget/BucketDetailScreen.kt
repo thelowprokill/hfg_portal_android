@@ -66,10 +66,9 @@ fun BucketDetailScreen(
         .filter { it.type == "expense" }
         .mapNotNull { it.amount?.toDoubleOrNull() }.sum()
 
-    // Monthly deposits — contributions/sinking fund deposits only (for sinking fund buckets)
-    val monthlyDeposits = filteredTransactions
-        .filter { it.type == "sinking_fund_deposit" || it.type == "contribution" }
-        .mapNotNull { it.amount?.toDoubleOrNull() }.sum()
+    // Monthly deposits — the API reports this month's sinking fund contribution directly
+    // via monthly_contribution rather than via the transaction list.
+    val monthlyDeposits = bucket?.monthly_contribution?.toDoubleOrNull() ?: 0.0
 
     // Current balance, straight from the server (not re-derived from the transaction list)
     val balanceAtMonthEnd = bucket?.balance?.toDoubleOrNull() ?: 0.0

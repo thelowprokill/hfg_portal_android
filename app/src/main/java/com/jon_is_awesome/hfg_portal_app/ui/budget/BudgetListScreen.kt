@@ -83,16 +83,9 @@ fun BudgetListScreen(
             .mapValues { (_, txs) -> txs.mapNotNull { it.amount?.toDoubleOrNull() }.sum() }
     }
 
-    val monthlyDepositsByBucket = remember(thisMonthTransactions) {
-        thisMonthTransactions
-            .filter { it.type == "sinking_fund_deposit" || it.type == "contribution" }
-            .groupBy { it.bucket_id ?: -1 }
-            .mapValues { (_, txs) -> txs.mapNotNull { it.amount?.toDoubleOrNull() }.sum() }
-    }
-
-    // The buckets endpoint has no month/year param, so its monthly_expenses/monthly_deposits
-    // fields only ever reflect the current month — fall back to the transaction-derived
-    // maps above when browsing a past or future month.
+    // The buckets endpoint has no month/year param, so its monthly_expenses field only ever
+    // reflects the current month — fall back to the transaction-derived map above when
+    // browsing a past or future month.
     val isCurrentMonth = remember(selectedMonth, selectedYear) {
         val now = Calendar.getInstance()
         selectedMonth == now.get(Calendar.MONTH) && selectedYear == now.get(Calendar.YEAR)
@@ -332,8 +325,7 @@ fun BudgetListScreen(
                             items(buckets) { bucket ->
                                 val monthlySpent = (if (isCurrentMonth) bucket.monthly_expenses?.toDoubleOrNull() else null)
                                     ?: monthlySpentByBucket[bucket.id] ?: 0.0
-                                val monthlyDeposits = (if (isCurrentMonth) bucket.monthly_deposits?.toDoubleOrNull() else null)
-                                    ?: monthlyDepositsByBucket[bucket.id] ?: 0.0
+                                val monthlyDeposits = bucket.monthly_contribution?.toDoubleOrNull() ?: 0.0
                                 val balanceAtMonthEnd = bucket.balance?.toDoubleOrNull() ?: 0.0
                                 BucketCard(
                                     bucket = bucket,

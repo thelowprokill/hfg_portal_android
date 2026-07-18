@@ -145,7 +145,6 @@ data class RemoteBucket(
     val monthly_contribution: String? = null,
     val max_balance: String? = null,
     val type: String? = null,
-    val monthly_deposits: String? = null,
     val monthly_expenses: String? = null
 )
 
