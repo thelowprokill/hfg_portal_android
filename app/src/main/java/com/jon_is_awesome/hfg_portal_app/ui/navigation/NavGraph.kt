@@ -176,9 +176,16 @@ fun NavGraph(navController: NavHostController, adminModeEnabled: Boolean, modifi
             if (hasAccess) {
                 BudgetListScreen(
                     viewModel = budgetRemoteViewModel,
-                    onBucketClick = { bucket -> navController.navigate("bucket_detail/${bucket.id}") }
+                    onBucketClick = { bucket -> navController.navigate("bucket_detail/${bucket.id}") },
+                    onOverviewClick = { navController.navigate("account_history") }
                 )
             }
+        }
+        composable("account_history") {
+            com.jon_is_awesome.hfg_portal_app.ui.budget.AccountHistoryScreen(
+                viewModel = budgetRemoteViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
         composable("add_bucket") {
             AddBudgetScreen(

@@ -43,6 +43,7 @@ class RemoteDataSource(private val context: Context) {
     private val _allTransactions = MutableStateFlow<List<RemoteTransaction>>(emptyList())
     private val _scheduledExpenses = MutableStateFlow<List<RemoteScheduledExpense>>(emptyList())
     private val _accountTotals = MutableStateFlow<RemoteAccountTotals?>(null)
+    private val _accountHistory = MutableStateFlow<List<RemoteAccountHistoryPoint>>(emptyList())
     private val _isLoggedIn = MutableStateFlow<Boolean?>(null)
     private val _token = MutableStateFlow<String?>(null)
     private val _loginError = MutableSharedFlow<String>()
@@ -60,6 +61,7 @@ class RemoteDataSource(private val context: Context) {
     val allTransactions: StateFlow<List<RemoteTransaction>> = _allTransactions
     val scheduledExpenses: StateFlow<List<RemoteScheduledExpense>> = _scheduledExpenses
     val accountTotals: StateFlow<RemoteAccountTotals?> = _accountTotals
+    val accountHistory: StateFlow<List<RemoteAccountHistoryPoint>> = _accountHistory
     val isLoggedIn: StateFlow<Boolean?> = _isLoggedIn
     val loginError = _loginError.asSharedFlow()
     val loggedInUsername: StateFlow<String?> = _loggedInUsername
@@ -487,6 +489,25 @@ class RemoteDataSource(private val context: Context) {
                 Log.d(TAG, "fetchAccountTotals success for $month/$year")
             } catch (e: Exception) {
                 Log.e(TAG, "fetchAccountTotals error", e)
+            }
+        }
+    }
+
+    suspend fun fetchAccountHistory(from: String, to: String, interval: String) {
+        val baseURL = BuildConfig.BASE_URL
+        client?.let {
+            try {
+                val response: AccountHistoryResponse = it.get("${baseURL}/apis/call") {
+                    parameter("scope", "budget")
+                    parameter("route", "account_history")
+                    parameter("from", from)
+                    parameter("to", to)
+                    parameter("interval", interval)
+                }.body()
+                _accountHistory.value = response.data.points
+                Log.d(TAG, "fetchAccountHistory success: count=${response.data.points.size}")
+            } catch (e: Exception) {
+                Log.e(TAG, "fetchAccountHistory error", e)
             }
         }
     }

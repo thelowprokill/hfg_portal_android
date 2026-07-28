@@ -27,6 +27,7 @@ class BudgetRemoteViewModel(
     val allTransactions: StateFlow<List<RemoteTransaction>> = remoteDataSource.allTransactions
     val scheduledExpenses: StateFlow<List<RemoteScheduledExpense>> = remoteDataSource.scheduledExpenses
     val accountTotals: StateFlow<RemoteAccountTotals?> = remoteDataSource.accountTotals
+    val accountHistory: StateFlow<List<com.jon_is_awesome.hfg_portal_app.data.remote.RemoteAccountHistoryPoint>> = remoteDataSource.accountHistory
     val isLoggedIn: StateFlow<Boolean?> = remoteDataSource.isLoggedIn
     val userRoles: StateFlow<Map<String, String>> = remoteDataSource.userRoles
 
@@ -84,6 +85,16 @@ class BudgetRemoteViewModel(
 
     fun fetchAllTransactions() {
         viewModelScope.launch { remoteDataSource.fetchAllTransactions() }
+    }
+
+    // Defaults when from/to are null: from = 6 months ago, to = today.
+    fun fetchAccountHistory(interval: String = "day", from: String? = null, to: String? = null) {
+        val iso = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        val cal = java.util.Calendar.getInstance()
+        val resolvedTo = to ?: iso.format(cal.time)
+        cal.add(java.util.Calendar.MONTH, -6)
+        val resolvedFrom = from ?: iso.format(cal.time)
+        viewModelScope.launch { remoteDataSource.fetchAccountHistory(resolvedFrom, resolvedTo, interval) }
     }
 
     suspend fun refreshBudgetList() {

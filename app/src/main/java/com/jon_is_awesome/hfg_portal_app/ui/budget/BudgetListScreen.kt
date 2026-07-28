@@ -35,7 +35,8 @@ private val SORT_FIELDS = listOf(
 @Composable
 fun BudgetListScreen(
     viewModel: BudgetRemoteViewModel,
-    onBucketClick: (RemoteBucket) -> Unit
+    onBucketClick: (RemoteBucket) -> Unit,
+    onOverviewClick: () -> Unit
 ) {
     val buckets by viewModel.buckets.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
@@ -204,12 +205,27 @@ fun BudgetListScreen(
                             val totalEmergency = buckets.filter { it.isEmergencyFund }
                                 .sumOf { it.balance?.toDoubleOrNull() ?: 0.0 }
 
-                            Card(modifier = Modifier.fillMaxWidth()) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(onClick = onOverviewClick)
+                            ) {
                                 Column(
                                     modifier = Modifier.padding(16.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text("Monthly Overview", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Monthly Overview", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                        Icon(
+                                            Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                            contentDescription = "View account history",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                     if (totalBudget > 0) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),

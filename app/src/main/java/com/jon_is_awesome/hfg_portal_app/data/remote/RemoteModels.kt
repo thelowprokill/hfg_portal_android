@@ -201,3 +201,27 @@ data class RemoteAccountTotals(
     val total_money: String? = null,
     val current_month_expenses: String? = null
 )
+
+@Serializable
+data class AccountHistoryResponse(
+    val data: RemoteAccountHistoryData = RemoteAccountHistoryData(),
+    val response: String? = null
+)
+
+@Serializable
+data class RemoteAccountHistoryData(
+    val from: String? = null,
+    val to: String? = null,
+    val interval: String? = null,
+    val points: List<RemoteAccountHistoryPoint> = emptyList()
+)
+
+@Serializable
+data class RemoteAccountHistoryPoint(
+    val date: String? = null,
+    val debit_total: String? = null,
+    val credit_total: String? = null,
+    val sinking_total: String? = null,
+    val emergency_total: String? = null,
+    val total_money: String? = null
+)
