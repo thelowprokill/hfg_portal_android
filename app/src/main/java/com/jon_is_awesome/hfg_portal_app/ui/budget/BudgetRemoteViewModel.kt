@@ -146,10 +146,11 @@ class BudgetRemoteViewModel(
         description: String,
         date: String,
         type: String,
+        transactionId: Int? = null,
         onResult: (Boolean) -> Unit
     ) {
         viewModelScope.launch {
-            val success = remoteDataSource.addTransaction(bucketId, amount, description, date, type)
+            val success = remoteDataSource.addTransaction(bucketId, amount, description, date, type, transactionId)
             if (success) {
                 remoteDataSource.fetchTransactions(bucketId)
                 remoteDataSource.fetchBuckets(_searchQuery.value, _sortField.value, _sortOrder.value)

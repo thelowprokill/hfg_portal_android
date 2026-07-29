@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -36,29 +37,69 @@ private fun todayAsUtcMillis(): Long {
 fun AddTransactionScreen(
     bucketId: Int,
     viewModel: BudgetRemoteViewModel,
+    transactionId: Int? = null,
+    canDelete: Boolean = false,
     onNavigateBack: () -> Unit
 ) {
     val buckets by viewModel.buckets.collectAsState()
     val bucket = buckets.find { it.id == bucketId }
     val bucketName = bucket?.name
 
-    var amount by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var date by remember { mutableLongStateOf(todayAsUtcMillis()) }
-    var type by remember { mutableStateOf("expense") }
+    val transactions by viewModel.transactions.collectAsState()
+    val existing = remember(transactionId) { transactions.find { it.id == transactionId } }
+
+    var amount by remember { mutableStateOf(existing?.amount ?: "") }
+    var description by remember { mutableStateOf(existing?.description ?: "") }
+    var date by remember {
+        mutableLongStateOf(
+            existing?.transaction_date?.let {
+                runCatching {
+                    SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.parse(it)?.time
+                }.getOrNull()
+            } ?: todayAsUtcMillis()
+        )
+    }
+    var type by remember { mutableStateOf(existing?.type ?: "expense") }
     var typeDropdownExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf<String?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Transaction") },
+            text = { Text("Delete \"${existing?.description}\"?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    viewModel.deleteTransaction(existing!!.id, bucketId) { success ->
+                        if (success) onNavigateBack()
+                    }
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false } ) { Text("Cancel") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add Transaction") },
+                title = { Text(if (existing != null) "Edit Transaction" else "Add Transaction") },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    if (existing != null && canDelete) {
+                        IconButton(onClick = { showDeleteConfirm = true }) {
+                            Icon(Icons.Rounded.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             )
@@ -153,6 +194,7 @@ fun AddTransactionScreen(
                         description = description.trim(),
                         date = dateStr,
                         type = type,
+                        transactionId = existing?.id,
                         onResult = { success ->
                             isSaving = false
                             if (success) onNavigateBack()

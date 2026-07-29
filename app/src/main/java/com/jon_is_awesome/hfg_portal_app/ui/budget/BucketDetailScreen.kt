@@ -1,11 +1,11 @@
 package com.jon_is_awesome.hfg_portal_app.ui.budget
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material3.*
@@ -15,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteScheduledExpense
-import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteTransaction
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -25,9 +24,9 @@ fun BucketDetailScreen(
     bucketId: Int,
     viewModel: BudgetRemoteViewModel,
     canEdit: Boolean,
-    canAdmin: Boolean,
     onNavigateBack: () -> Unit,
-    onAddTransactionClick: () -> Unit
+    onAddTransactionClick: () -> Unit,
+    onEditTransactionClick: (Int) -> Unit
 ) {
     val buckets by viewModel.buckets.collectAsState()
     val transactions by viewModel.transactions.collectAsState()
@@ -73,28 +72,8 @@ fun BucketDetailScreen(
     // Current balance, straight from the server (not re-derived from the transaction list)
     val balanceAtMonthEnd = bucket?.balance?.toDoubleOrNull() ?: 0.0
 
-    var transactionToDelete by remember { mutableStateOf<RemoteTransaction?>(null) }
-
     LaunchedEffect(bucketId) {
         viewModel.fetchBucketDetail(bucketId)
-    }
-
-    if (transactionToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { transactionToDelete = null },
-            title = { Text("Delete Transaction") },
-            text = { Text("Delete \"${transactionToDelete?.description}\"?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    val t = transactionToDelete!!
-                    transactionToDelete = null
-                    viewModel.deleteTransaction(t.id, bucketId) {}
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { transactionToDelete = null }) { Text("Cancel") }
-            }
-        )
     }
 
     Scaffold(
@@ -318,7 +297,6 @@ fun BucketDetailScreen(
                             modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                         Text("Date", fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                        Spacer(Modifier.width(40.dp))
                     }
                     HorizontalDivider()
                 }
@@ -326,6 +304,7 @@ fun BucketDetailScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .let { if (canEdit) it.clickable { onEditTransactionClick(tx.id) } else it }
                             .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -340,18 +319,6 @@ fun BucketDetailScreen(
                         )
                         Text(tx.transaction_date ?: "—", modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodySmall)
-                        if (canAdmin) {
-                            IconButton(
-                                onClick = { transactionToDelete = tx },
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Icon(Icons.Rounded.Delete, contentDescription = "Delete",
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(18.dp))
-                            }
-                        } else {
-                            Spacer(Modifier.width(40.dp))
-                        }
                     }
                     HorizontalDivider(thickness = 0.5.dp)
                 }

@@ -204,19 +204,27 @@ fun NavGraph(navController: NavHostController, adminModeEnabled: Boolean, modifi
                 bucketId = bucketId,
                 viewModel = budgetRemoteViewModel,
                 canEdit = budgetRole == "Edit" || budgetRole == "Admin",
-                canAdmin = budgetRole == "Admin" && adminModeEnabled,
                 onNavigateBack = { navController.popBackStack() },
-                onAddTransactionClick = { navController.navigate("add_transaction/$bucketId") }
+                onAddTransactionClick = { navController.navigate("add_transaction/$bucketId") },
+                onEditTransactionClick = { transactionId -> navController.navigate("add_transaction/$bucketId?transactionId=$transactionId") }
             )
         }
         composable(
-            "add_transaction/{bucketId}",
-            arguments = listOf(navArgument("bucketId") { type = NavType.IntType })
+            "add_transaction/{bucketId}?transactionId={transactionId}",
+            arguments = listOf(
+                navArgument("bucketId") { type = NavType.IntType },
+                navArgument("transactionId") { type = NavType.IntType; defaultValue = -1 }
+            )
         ) { backStackEntry ->
             val bucketId = backStackEntry.arguments?.getInt("bucketId") ?: return@composable
+            val transactionId = backStackEntry.arguments?.getInt("transactionId")?.takeIf { it != -1 }
+            val userRoles by budgetRemoteViewModel.userRoles.collectAsState()
+            val budgetRole = userRoles["Budget"]
             AddTransactionScreen(
                 bucketId = bucketId,
                 viewModel = budgetRemoteViewModel,
+                transactionId = transactionId,
+                canDelete = budgetRole == "Edit" || budgetRole == "Admin",
                 onNavigateBack = { navController.popBackStack() }
             )
         }

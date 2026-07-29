@@ -580,7 +580,8 @@ class RemoteDataSource(private val context: Context) {
         amount: String,
         description: String,
         transactionDate: String,
-        type: String
+        type: String,
+        id: Int? = null
     ): Boolean {
         val baseURL = BuildConfig.BASE_URL
         return client?.let {
@@ -588,6 +589,7 @@ class RemoteDataSource(private val context: Context) {
                 val httpResponse = it.put("${baseURL}/apis/call") {
                     parameter("scope", "budget:transactions")
                     parameter("route", "transaction")
+                    if (id != null) parameter("id", id)
                     parameter("bucket_id", bucketId)
                     parameter("amount", amount)
                     parameter("description", description)
