@@ -282,7 +282,7 @@ class RemoteDataSource(private val context: Context) {
                     parameter("car_id", carId)
                     parameter("service_date", serviceDate)
                     parameter("mileage", mileage)
-                    parameter("name", name)
+                    if (namedItem == "true") parameter("name", name)
                     if (maintenanceItemId != null) parameter("item_id", maintenanceItemId)
                     parameter("named_item", namedItem)
                     parameter("notes", notes)
