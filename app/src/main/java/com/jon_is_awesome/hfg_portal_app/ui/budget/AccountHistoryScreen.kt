@@ -1,6 +1,7 @@
 package com.jon_is_awesome.hfg_portal_app.ui.budget
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -14,7 +15,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -58,6 +63,7 @@ fun AccountHistoryScreen(
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker by remember { mutableStateOf(false) }
     val history by viewModel.accountHistory.collectAsState()
+    var hidden by remember { mutableStateOf(emptySet<String>()) }
 
     LaunchedEffect(interval, fromDate, toDate) { viewModel.fetchAccountHistory(interval, fromDate, toDate) }
 
@@ -128,11 +134,16 @@ fun AccountHistoryScreen(
                 var selected by remember(history) { mutableStateOf<Int?>(null) }
                 LineChart(
                     history,
+                    series = SERIES.filter { it.label !in hidden },
                     selected = selected,
                     onSelect = { selected = it },
                     modifier = Modifier.fillMaxWidth().weight(1f)
                 )
-                Legend(selected?.let(history::getOrNull))
+                Legend(
+                    point = selected?.let(history::getOrNull),
+                    hidden = hidden,
+                    onToggle = { label -> hidden = if (label in hidden) hidden - label else hidden + label }
+                )
             }
         }
     }
@@ -165,13 +176,17 @@ internal fun tickLabel(v: Double, step: Double): String {
 @Composable
 private fun LineChart(
     points: List<RemoteAccountHistoryPoint>,
+    series: List<Series>,
     selected: Int?,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val values = SERIES.map { (_, _, sel) -> points.map { sel(it)?.toDoubleOrNull() } }
+    val values = series.map { (_, _, sel) -> points.map { sel(it)?.toDoubleOrNull() } }
     val allValues = values.flatten().filterNotNull()
-    if (allValues.isEmpty()) return
+    if (allValues.isEmpty()) {
+        Box(modifier, contentAlignment = Alignment.Center) { Text("No lines shown — tap a legend item.") }
+        return
+    }
     val ticks = niceTicks(allValues.min(), allValues.max())
     val min = ticks.first()
     val range = ticks.last() - min
@@ -217,7 +232,7 @@ private fun LineChart(
         }
 
         values.forEachIndexed { s, seriesVals ->
-            val color = SERIES[s].color
+            val color = series[s].color
             var prev: Offset? = null
             seriesVals.forEachIndexed { i, v ->
                 val cur = if (v == null) null else Offset(x(i), y(v))
@@ -229,7 +244,7 @@ private fun LineChart(
         selected?.takeIf { it in points.indices }?.let { i ->
             drawLine(cursorColor, Offset(x(i), top), Offset(x(i), bottom), strokeWidth = 2f)
             values.forEachIndexed { s, seriesVals ->
-                seriesVals[i]?.let { drawCircle(SERIES[s].color, radius = 8f, center = Offset(x(i), y(it))) }
+                seriesVals[i]?.let { drawCircle(series[s].color, radius = 8f, center = Offset(x(i), y(it))) }
             }
         }
     }
@@ -260,9 +275,9 @@ private fun DateRangePickerDialog(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Legend(point: RemoteAccountHistoryPoint?) {
+private fun Legend(point: RemoteAccountHistoryPoint?, hidden: Set<String>, onToggle: (String) -> Unit) {
     Text(
-        point?.date ?: "Drag across the chart to see values",
+        point?.date ?: "Drag across the chart to see values · tap a legend item to hide it",
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -271,10 +286,23 @@ private fun Legend(point: RemoteAccountHistoryPoint?) {
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         SERIES.forEach { (label, color, select) ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Canvas(Modifier.size(12.dp)) { drawCircle(color) }
-                Text(label, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                point?.let { select(it)?.toDoubleOrNull() }?.let {
+            val shown = label !in hidden
+            Row(
+                modifier = Modifier
+                    .clickable(role = Role.Checkbox, onClickLabel = if (shown) "Hide $label" else "Show $label") { onToggle(label) }
+                    .alpha(if (shown) 1f else 0.4f)
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Canvas(Modifier.size(12.dp)) { if (shown) drawCircle(color) else drawCircle(color, style = Stroke(2.dp.toPx())) }
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    textDecoration = if (shown) null else TextDecoration.LineThrough
+                )
+                point?.takeIf { shown }?.let { select(it)?.toDoubleOrNull() }?.let {
                     Text("$%,.2f".format(it), style = MaterialTheme.typography.bodySmall)
                 }
             }
