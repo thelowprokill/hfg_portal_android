@@ -44,6 +44,7 @@ class RemoteDataSource(private val context: Context) {
     private val _scheduledExpenses = MutableStateFlow<List<RemoteScheduledExpense>>(emptyList())
     private val _accountTotals = MutableStateFlow<RemoteAccountTotals?>(null)
     private val _accountHistory = MutableStateFlow<List<RemoteAccountHistoryPoint>>(emptyList())
+    private val _accountBalances = MutableStateFlow<List<RemoteAccountBalance>>(emptyList())
     private val _isLoggedIn = MutableStateFlow<Boolean?>(null)
     private val _token = MutableStateFlow<String?>(null)
     private val _loginError = MutableSharedFlow<String>()
@@ -62,6 +63,7 @@ class RemoteDataSource(private val context: Context) {
     val scheduledExpenses: StateFlow<List<RemoteScheduledExpense>> = _scheduledExpenses
     val accountTotals: StateFlow<RemoteAccountTotals?> = _accountTotals
     val accountHistory: StateFlow<List<RemoteAccountHistoryPoint>> = _accountHistory
+    val accountBalances: StateFlow<List<RemoteAccountBalance>> = _accountBalances
     val isLoggedIn: StateFlow<Boolean?> = _isLoggedIn
     val loginError = _loginError.asSharedFlow()
     val loggedInUsername: StateFlow<String?> = _loggedInUsername
@@ -512,6 +514,43 @@ class RemoteDataSource(private val context: Context) {
         }
     }
 
+    // date is passed explicitly: the backend defaults to UTC today, not local today.
+    suspend fun fetchAccountBalances(date: String) {
+        val baseURL = BuildConfig.BASE_URL
+        client?.let {
+            try {
+                val response: AccountBalancesResponse = it.get("${baseURL}/apis/call") {
+                    parameter("scope", "budget")
+                    parameter("route", "balances")
+                    parameter("date", date)
+                }.body()
+                _accountBalances.value = response.data.accounts
+                Log.d(TAG, "fetchAccountBalances success: count=${response.data.accounts.size}")
+            } catch (e: Exception) {
+                Log.e(TAG, "fetchAccountBalances error", e)
+            }
+        }
+    }
+
+    suspend fun putAccountBalance(accountId: Int, balance: String, date: String): Boolean {
+        val baseURL = BuildConfig.BASE_URL
+        return client?.let {
+            try {
+                val response: GenericResponse = it.put("${baseURL}/apis/call") {
+                    parameter("scope", "budget")
+                    parameter("route", "balance")
+                    parameter("account_id", accountId)
+                    parameter("balance", balance)
+                    parameter("date", date)
+                }.body()
+                response.response == "ok"
+            } catch (e: Exception) {
+                Log.e(TAG, "putAccountBalance error", e)
+                false
+            }
+        } ?: false
+    }
+
     suspend fun fetchScheduledExpenses(bucketId: Int) {
         val baseURL = BuildConfig.BASE_URL
         _scheduledExpenses.value = emptyList()
@@ -639,6 +678,7 @@ class RemoteDataSource(private val context: Context) {
         _transactions.value = emptyList()
         _allTransactions.value = emptyList()
         _scheduledExpenses.value = emptyList()
+        _accountBalances.value = emptyList()
         client?.close()
         client = null
     }

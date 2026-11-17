@@ -24,7 +24,7 @@ private fun formatTransactionType(type: String): String =
 
 // DatePicker and formatDate() both work in UTC millis, so "today" must be expressed as
 // today's local calendar date at UTC midnight, not the raw current instant.
-private fun todayAsUtcMillis(): Long {
+internal fun todayAsUtcMillis(): Long {
     val local = Calendar.getInstance()
     return Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
         clear()

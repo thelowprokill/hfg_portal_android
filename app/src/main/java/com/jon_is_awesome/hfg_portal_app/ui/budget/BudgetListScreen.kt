@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Search
@@ -36,7 +37,8 @@ private val SORT_FIELDS = listOf(
 fun BudgetListScreen(
     viewModel: BudgetRemoteViewModel,
     onBucketClick: (RemoteBucket) -> Unit,
-    onOverviewClick: () -> Unit
+    onOverviewClick: () -> Unit,
+    onBalancesClick: (() -> Unit)? = null
 ) {
     val buckets by viewModel.buckets.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
@@ -96,6 +98,13 @@ fun BudgetListScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Budget") },
+                actions = {
+                    if (onBalancesClick != null) {
+                        IconButton(onClick = onBalancesClick) {
+                            Icon(Icons.Rounded.AccountBalance, contentDescription = "Account balances")
+                        }
+                    }
+                },
                 windowInsets = WindowInsets(0),
             )
         }

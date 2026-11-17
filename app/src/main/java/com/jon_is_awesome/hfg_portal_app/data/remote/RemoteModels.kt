@@ -225,3 +225,24 @@ data class RemoteAccountHistoryPoint(
     val emergency_total: String? = null,
     val total_money: String? = null
 )
+
+@Serializable
+data class AccountBalancesResponse(
+    val data: RemoteAccountBalancesData = RemoteAccountBalancesData(),
+    val response: String? = null
+)
+
+@Serializable
+data class RemoteAccountBalancesData(
+    val as_of: String? = null,
+    val accounts: List<RemoteAccountBalance> = emptyList()
+)
+
+@Serializable
+data class RemoteAccountBalance(
+    val account_id: Int,
+    val name: String? = null,
+    val type: String? = null,
+    val balance: String? = null,
+    val date: String? = null
+)

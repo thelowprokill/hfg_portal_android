@@ -174,10 +174,14 @@ fun NavGraph(navController: NavHostController, adminModeEnabled: Boolean, modifi
                 }
             }
             if (hasAccess) {
+                val isBudgetAdmin = userRoles["Budget"] == "Admin" && adminModeEnabled
                 BudgetListScreen(
                     viewModel = budgetRemoteViewModel,
                     onBucketClick = { bucket -> navController.navigate("bucket_detail/${bucket.id}") },
-                    onOverviewClick = { navController.navigate("account_history") }
+                    onOverviewClick = { navController.navigate("account_history") },
+                    onBalancesClick = if (isBudgetAdmin) {
+                        { navController.navigate("account_balances") }
+                    } else null
                 )
             }
         }
@@ -186,6 +190,17 @@ fun NavGraph(navController: NavHostController, adminModeEnabled: Boolean, modifi
                 viewModel = budgetRemoteViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
+        }
+        composable("account_balances") {
+            val userRoles by budgetRemoteViewModel.userRoles.collectAsState()
+            if (userRoles["Budget"] == "Admin" && adminModeEnabled) {
+                com.jon_is_awesome.hfg_portal_app.ui.budget.AccountBalancesScreen(
+                    viewModel = budgetRemoteViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            } else {
+                LaunchedEffect(Unit) { navController.popBackStack() }
+            }
         }
         composable("add_bucket") {
             AddBudgetScreen(

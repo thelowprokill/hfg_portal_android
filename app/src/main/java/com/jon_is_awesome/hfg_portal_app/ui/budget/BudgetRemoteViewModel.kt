@@ -97,6 +97,22 @@ class BudgetRemoteViewModel(
         viewModelScope.launch { remoteDataSource.fetchAccountHistory(resolvedFrom, resolvedTo, interval) }
     }
 
+    val accountBalances: StateFlow<List<com.jon_is_awesome.hfg_portal_app.data.remote.RemoteAccountBalance>> = remoteDataSource.accountBalances
+
+    private fun localToday() = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+
+    fun fetchAccountBalances() {
+        viewModelScope.launch { remoteDataSource.fetchAccountBalances(localToday()) }
+    }
+
+    fun updateAccountBalance(accountId: Int, balance: String, date: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = remoteDataSource.putAccountBalance(accountId, balance, date)
+            if (success) remoteDataSource.fetchAccountBalances(localToday())
+            onResult(success)
+        }
+    }
+
     suspend fun refreshBudgetList() {
         coroutineScope {
             launch { remoteDataSource.fetchBuckets(_searchQuery.value, _sortField.value, _sortOrder.value) }
