@@ -1,6 +1,8 @@
 package com.jon_is_awesome.hfg_portal_app.ui.budget
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -13,12 +15,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jon_is_awesome.hfg_portal_app.data.remote.RemoteAccountHistoryPoint
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.log10
+import kotlin.math.pow
+import kotlin.math.roundToInt
 
 private val ISO_DATE = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
     timeZone = TimeZone.getTimeZone("UTC")
@@ -114,31 +125,96 @@ fun AccountHistoryScreen(
                     Text("No history available.")
                 }
             } else {
-                LineChart(history, modifier = Modifier.fillMaxWidth().weight(1f))
-                Legend()
+                var selected by remember(history) { mutableStateOf<Int?>(null) }
+                LineChart(
+                    history,
+                    selected = selected,
+                    onSelect = { selected = it },
+                    modifier = Modifier.fillMaxWidth().weight(1f)
+                )
+                Legend(selected?.let(history::getOrNull))
             }
         }
     }
 }
 
+// Round gridline values (multiples of 1/2/5 x 10^n) spanning [min, max].
+internal fun niceTicks(min: Double, max: Double, target: Int = 4): List<Double> {
+    val pad = if (max > min) 0.0 else maxOf(abs(min) * 0.1, 1.0)
+    val lo = min - pad
+    val hi = max + pad
+    val raw = (hi - lo) / target
+    val mag = 10.0.pow(floor(log10(raw)))
+    val step = listOf(1.0, 2.0, 5.0, 10.0).map { it * mag }.first { it >= raw }
+    val first = floor(lo / step)
+    val last = ceil(hi / step)
+    return (0..(last - first).toInt()).map { (first + it) * step }
+}
+
+// Ticks are exact multiples of the step, so scaling by the step's unit never needs decimals.
+internal fun tickLabel(v: Double, step: Double): String {
+    val (unit, suffix) = when {
+        step >= 1e6 -> 1e6 to "M"
+        step >= 1e3 -> 1e3 to "k"
+        else -> 1.0 to ""
+    }
+    val sign = if (v < 0) "-" else ""
+    return "$sign$" + "%,.0f".format(abs(v) / unit) + suffix
+}
+
 @Composable
-private fun LineChart(points: List<RemoteAccountHistoryPoint>, modifier: Modifier = Modifier) {
+private fun LineChart(
+    points: List<RemoteAccountHistoryPoint>,
+    selected: Int?,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val values = SERIES.map { (_, _, sel) -> points.map { sel(it)?.toDoubleOrNull() } }
     val allValues = values.flatten().filterNotNull()
     if (allValues.isEmpty()) return
-    val min = allValues.min()
-    val max = allValues.max()
-    val range = (max - min).takeIf { it != 0.0 } ?: 1.0
-    val outline = MaterialTheme.colorScheme.outlineVariant
+    val ticks = niceTicks(allValues.min(), allValues.max())
+    val min = ticks.first()
+    val range = ticks.last() - min
+    val step = ticks[1] - ticks[0]
 
-    Canvas(modifier) {
-        val h = size.height
-        val w = size.width
-        // Baseline axis
-        drawLine(outline, Offset(0f, h), Offset(w, h), strokeWidth = 2f)
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val cursorColor = MaterialTheme.colorScheme.onSurface
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = labelColor)
+    val measurer = rememberTextMeasurer()
+    val labels = remember(ticks, labelStyle) { ticks.map { measurer.measure(tickLabel(it, step), labelStyle) } }
+    val gutter = labels.maxOf { it.size.width } + 12f
+    val labelHalfH = labels.first().size.height / 2f
 
-        fun x(i: Int) = if (points.size <= 1) 0f else w * i / (points.size - 1)
-        fun y(v: Double) = (h - (((v - min) / range) * h)).toFloat()
+    fun indexAt(x: Float, width: Float): Int {
+        if (points.size <= 1) return 0
+        val frac = ((x - gutter) / (width - gutter)).coerceIn(0f, 1f)
+        return (frac * (points.size - 1)).roundToInt()
+    }
+
+    Canvas(
+        modifier
+            .pointerInput(points, gutter) {
+                detectTapGestures { onSelect(indexAt(it.x, size.width.toFloat())) }
+            }
+            .pointerInput(points, gutter) {
+                detectHorizontalDragGestures(
+                    onDragStart = { onSelect(indexAt(it.x, size.width.toFloat())) }
+                ) { change, _ -> onSelect(indexAt(change.position.x, size.width.toFloat())) }
+            }
+    ) {
+        val top = labelHalfH
+        val bottom = size.height - labelHalfH
+        val plotW = size.width - gutter
+
+        fun x(i: Int) = gutter + if (points.size <= 1) 0f else plotW * i / (points.size - 1)
+        fun y(v: Double) = (bottom - ((v - min) / range) * (bottom - top)).toFloat()
+
+        ticks.forEachIndexed { i, t ->
+            val ty = y(t)
+            drawLine(gridColor, Offset(gutter, ty), Offset(size.width, ty), strokeWidth = 1.5f)
+            drawText(labels[i], topLeft = Offset(0f, ty - labelHalfH))
+        }
 
         values.forEachIndexed { s, seriesVals ->
             val color = SERIES[s].color
@@ -147,6 +223,13 @@ private fun LineChart(points: List<RemoteAccountHistoryPoint>, modifier: Modifie
                 val cur = if (v == null) null else Offset(x(i), y(v))
                 if (prev != null && cur != null) drawLine(color, prev!!, cur, strokeWidth = 4f)
                 prev = cur ?: prev
+            }
+        }
+
+        selected?.takeIf { it in points.indices }?.let { i ->
+            drawLine(cursorColor, Offset(x(i), top), Offset(x(i), bottom), strokeWidth = 2f)
+            values.forEachIndexed { s, seriesVals ->
+                seriesVals[i]?.let { drawCircle(SERIES[s].color, radius = 8f, center = Offset(x(i), y(it))) }
             }
         }
     }
@@ -177,15 +260,23 @@ private fun DateRangePickerDialog(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Legend() {
+private fun Legend(point: RemoteAccountHistoryPoint?) {
+    Text(
+        point?.date ?: "Drag across the chart to see values",
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        SERIES.forEach { (label, color, _) ->
+        SERIES.forEach { (label, color, select) ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Canvas(Modifier.size(12.dp)) { drawCircle(color) }
                 Text(label, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                point?.let { select(it)?.toDoubleOrNull() }?.let {
+                    Text("$%,.2f".format(it), style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
     }
