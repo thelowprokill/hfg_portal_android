@@ -1,4 +1,4 @@
 <resources>
 
-    <style name="Theme.Hfg_portal_app" parent="Theme.MaterialComponents.Light" />
+    <style name="Theme.Hfg_portal_app" parent="Theme.MaterialComponents.DayNight" />
 </resources>

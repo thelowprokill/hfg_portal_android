@@ -100,7 +100,7 @@ private fun UpdateBalanceDialog(
 ) {
     val context = LocalContext.current
     var date by remember { mutableLongStateOf(todayAsUtcMillis()) }
-    var value by remember { mutableStateOf("") }
+    var value by remember { mutableStateOf(account.balance ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
 
